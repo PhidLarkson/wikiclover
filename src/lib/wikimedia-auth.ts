@@ -186,7 +186,7 @@ export async function fetchUserInfo(): Promise<WikimediaUser | null> {
     if (!token) return null
 
     try {
-        const res = await fetch(`${WIKIMEDIA_API_BASE}?action=query&meta=userinfo&uiprop=editcount|registration&format=json`, {
+        const res = await fetch(`${WIKIMEDIA_API_BASE}?action=query&meta=userinfo&uiprop=editcount|registration&format=json&origin=*`, {
             headers: { Authorization: `Bearer ${token}` },
         })
         const data = await res.json()
