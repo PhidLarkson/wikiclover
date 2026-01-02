@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useToast } from '@/context/ToastContext'
 
 interface Props {
     item: {
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function MediaDetail({ item, onClose }: Props) {
+    const { showToast } = useToast()
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
         window.addEventListener('keydown', onKey)
@@ -34,6 +36,27 @@ export default function MediaDetail({ item, onClose }: Props) {
             window.URL.revokeObjectURL(url)
         } catch (e) {
             window.open(item.url, '_blank')
+        }
+    }
+
+    const handleShare = async () => {
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: item.title,
+                    text: `Check out this image on WikiClover: ${item.title}`,
+                    url: item.descriptionurl
+                })
+            } catch (error) {
+                // User cancelled or share failed
+            }
+        } else {
+            try {
+                await navigator.clipboard.writeText(item.descriptionurl)
+                showToast('Link copied to clipboard')
+            } catch (err) {
+                showToast('Failed to copy link')
+            }
         }
     }
 
@@ -73,7 +96,7 @@ export default function MediaDetail({ item, onClose }: Props) {
                             <span>Download</span>
                         </button>
 
-                        <button onClick={() => navigator.share?.({ title: item.title, url: item.descriptionurl })} className="action-btn">
+                        <button onClick={handleShare} className="action-btn">
                             <div className="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></svg></div>
                             <span>Share</span>
                         </button>

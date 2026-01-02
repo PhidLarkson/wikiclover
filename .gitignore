@@ -30,6 +30,7 @@ yarn-error.log*
 !package-lock.json
 !tsconfig.json
 !tsconfig.node.json
+!vercel.json
 !src/**/*.json
 
 # PWA generated

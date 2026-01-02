@@ -14,6 +14,8 @@
   --accent-lightness: 85%;
   --accent: hsl(var(--accent-hue), var(--accent-saturation), var(--accent-lightness));
   --accent-muted: hsl(var(--accent-hue), var(--accent-saturation), calc(var(--accent-lightness) * 0.7));
+  --accent-fg: var(--black);
+  /* Default text color on accent */
 
   /* Base Colors - OLED Black & Pure White */
   --black: #000000;
@@ -126,30 +128,35 @@
   --accent-hue: 48;
   --accent-saturation: 100%;
   --accent-lightness: 50%;
+  --accent-fg: #000000;
 }
 
 [data-accent="blue"] {
   --accent-hue: 217;
   --accent-saturation: 91%;
   --accent-lightness: 60%;
+  --accent-fg: #ffffff;
 }
 
 [data-accent="pink"] {
   --accent-hue: 330;
   --accent-saturation: 81%;
   --accent-lightness: 60%;
+  --accent-fg: #ffffff;
 }
 
 [data-accent="green"] {
   --accent-hue: 142;
   --accent-saturation: 71%;
   --accent-lightness: 45%;
+  --accent-fg: #ffffff;
 }
 
 [data-accent="red"] {
   --accent-hue: 0;
   --accent-saturation: 75%;
   --accent-lightness: 60%;
+  --accent-fg: #ffffff;
 }
 
 [data-accent="creme"] {
@@ -157,6 +164,7 @@
   --accent-saturation: 60%;
   --accent-lightness: 88%;
   --accent: #FDF5E6;
+  --accent-fg: #3d3d3d;
   /* Old Lace / Warm Creme */
 }
 
@@ -166,12 +174,14 @@
   --accent-saturation: 0%;
   --accent-lightness: 100%;
   --accent: #ffffff;
+  --accent-fg: #000000;
 }
 
 [data-accent="orange"] {
   --accent-hue: 25;
   --accent-saturation: 95%;
   --accent-lightness: 53%;
+  --accent-fg: #000000;
 }
 
 /* ===== Reset ===== */

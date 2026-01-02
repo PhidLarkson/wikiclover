@@ -56,7 +56,8 @@ function base64URLEncode(buffer: Uint8Array): string {
  */
 export async function buildAuthUrl(): Promise<string> {
     const clientId = import.meta.env.VITE_WIKIMEDIA_CLIENT_ID
-    const redirectUri = import.meta.env.VITE_WIKIMEDIA_REDIRECT_URI || `${window.location.origin}/auth/callback`
+    // Dynamic redirect URI based on current origin - fixes localhost vs production issues
+    const redirectUri = `${window.location.origin}/auth/callback`
 
     if (!clientId) {
         throw new Error('VITE_WIKIMEDIA_CLIENT_ID is not configured')
@@ -84,7 +85,7 @@ export async function buildAuthUrl(): Promise<string> {
  */
 export async function exchangeCodeForToken(code: string): Promise<TokenResponse> {
     const clientId = import.meta.env.VITE_WIKIMEDIA_CLIENT_ID
-    const redirectUri = import.meta.env.VITE_WIKIMEDIA_REDIRECT_URI || `${window.location.origin}/auth/callback`
+    const redirectUri = `${window.location.origin}/auth/callback`
     const codeVerifier = sessionStorage.getItem(STORAGE_KEYS.CODE_VERIFIER)
 
     if (!codeVerifier) {

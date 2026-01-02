@@ -187,7 +187,7 @@ export default function UserProfile() {
                     flex: 1;
                     display: flex; align-items: center; justify-content: center; gap: 8px;
                     padding: 12px 20px; border-radius: 14px;
-                    background: var(--accent); color: white;
+                    background: var(--accent); color: var(--accent-fg);
                     font-size: 14px; font-weight: 600;
                     transition: all 0.2s;
                 }

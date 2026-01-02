@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { ThemeProvider } from '@/context/ThemeContext'
 import { LanguageProvider } from '@/context/LanguageContext'
@@ -25,10 +25,14 @@ import { ToastProvider } from '@/context/ToastContext'
 function AppContent() {
     const { isLoggedIn, isGuest } = useAuth()
     const { shouldRender, completeOnboarding } = useOnboarding()
+    const location = useLocation()
     // Simplified mobile check (optional, or remove if not needed)
     // const isMobile = window.innerWidth <= 768 
 
-    if (!isLoggedIn && !isGuest) {
+    // Allow access to auth callback and login page without being logged in
+    const isPublicRoute = location.pathname.startsWith('/auth/callback') || location.pathname === '/login'
+
+    if (!isLoggedIn && !isGuest && !isPublicRoute) {
         return <Login />
     }
 
@@ -46,6 +50,7 @@ function AppContent() {
                     <Route path="campaigns" element={<Campaigns />} />
                 </Route>
                 <Route path="upload" element={<Upload />} />
+                <Route path="login" element={<Login />} />
                 <Route path="auth/callback" element={<AuthCallback />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

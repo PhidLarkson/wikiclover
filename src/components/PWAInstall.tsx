@@ -1,7 +1,7 @@
 /**
  * PWA Install Prompt Component
  * 
- * Shows a native-feeling install banner when PWA is installable
+ * Custom minimal install button hidden at bottom left
  */
 
 import { useState, useEffect } from 'react'
@@ -10,148 +10,96 @@ import { usePWA } from '@/context/PWAContext'
 
 export default function PWAInstall() {
   const { t } = useLanguage()
-  const { canInstall, isInstalled, install, dismissInstall } = usePWA()
+  const { canInstall, isInstalled, install } = usePWA()
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
-    // Show banner if installable and not installed
     if (canInstall && !isInstalled) {
-      // Simple delay to not be annoying immediately
-      const timer = setTimeout(() => setIsVisible(true), 3000)
+      // Small delay for smooth entrance
+      const timer = setTimeout(() => setIsVisible(true), 2000)
       return () => clearTimeout(timer)
-    } else {
-      setIsVisible(false)
     }
   }, [canInstall, isInstalled])
 
-  if (isInstalled || !isVisible) {
-    return null
-  }
-
-  const handleDismiss = () => {
-    setIsVisible(false)
-    dismissInstall()
-  }
+  if (!isVisible || isInstalled) return null
 
   return (
-    <div className="pwa-banner">
-      <div className="pwa-content">
-        <div className="pwa-icon">
-          <svg width="24" height="24" viewBox="0 0 32 32">
-            <g transform="translate(16,16)">
-              <circle cx="-5" cy="-5" r="5.5" fill="#F59E0B" />
-              <circle cx="5" cy="-5" r="5.5" fill="#F59E0B" opacity="0.8" />
-              <circle cx="-5" cy="5" r="5.5" fill="#F59E0B" opacity="0.6" />
-              <circle cx="5" cy="5" r="5.5" fill="#F59E0B" opacity="0.4" />
-            </g>
-          </svg>
-        </div>
-        <div className="pwa-text">
-          <strong>{t('install.title')}</strong>
-          <span>{t('install.description')}</span>
-        </div>
+    <button className="pwa-mini-fab" onClick={install} aria-label={t('install.install')}>
+      <div className="pwa-icon">
+        <svg width="24" height="24" viewBox="0 0 32 32">
+          <g transform="translate(16,16)">
+            <circle cx="-5" cy="-5" r="5.5" fill="currentColor" />
+            <circle cx="5" cy="-5" r="5.5" fill="currentColor" opacity="0.8" />
+            <circle cx="-5" cy="5" r="5.5" fill="currentColor" opacity="0.6" />
+            <circle cx="5" cy="5" r="5.5" fill="currentColor" opacity="0.4" />
+          </g>
+        </svg>
       </div>
-      <div className="pwa-actions">
-        <button className="pwa-dismiss" onClick={handleDismiss}>
-          {t('install.later')}
-        </button>
-        <button className="pwa-install" onClick={install}>
-          {t('install.install')}
-        </button>
-      </div>
+      <span className="pwa-label">{t('install.install')} App</span>
 
       <style>{`
+        .pwa-mini-fab {
           position: fixed;
-          bottom: 96px;
-          left: 12px;
-          right: 12px;
-          background: var(--bg-card);
+          bottom: 24px;
+          left: 24px;
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 8px 16px 8px 8px;
+          background: var(--bg-elevated);
           border: 1px solid var(--border);
-          border-radius: 16px;
-          padding: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          z-index: 150;
-          animation: slideUp 0.3s ease;
-          box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+          border-radius: 100px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+          animation: slideInLeft 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+          color: var(--text);
         }
-        
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+
+        .pwa-mini-fab:hover {
+          transform: translateY(-2px);
+          background: var(--bg-card);
+          box-shadow: 0 8px 25px rgba(0,0,0,0.4);
         }
-        
-        .pwa-content {
-          display: flex;
-          align-items: center;
-          gap: 12px;
+
+        .pwa-mini-fab:active {
+          transform: scale(0.95);
         }
-        
+
         .pwa-icon {
-          width: 40px;
-          height: 40px;
-          background: #fff;
-          border-radius: 10px;
+          width: 32px;
+          height: 32px;
+          background: var(--accent);
+          color: var(--black);
+          border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          flex-shrink: 0;
         }
-        
-        .pwa-text {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
+
+        .pwa-icon svg {
+          width: 18px;
+          height: 18px;
         }
-        
-        .pwa-text strong {
-          font-size: 14px;
-          font-weight: 600;
-        }
-        
-        .pwa-text span {
-          font-size: 12px;
-          color: var(--text-secondary);
-        }
-        
-        .pwa-actions {
-          display: flex;
-          gap: 8px;
-          flex-shrink: 0;
-        }
-        
-        .pwa-dismiss {
-          padding: 8px 12px;
-          font-size: 13px;
-          font-weight: 500;
-          color: var(--text-secondary);
-        }
-        
-        .pwa-install {
-          padding: 8px 16px;
-          background: var(--accent);
-          color: #fff;
+
+        .pwa-label {
           font-size: 13px;
           font-weight: 600;
-          border-radius: 8px;
+          padding-right: 4px;
         }
-        
-        @media (min-width: 768px) {
-          .pwa-banner {
-            max-width: 400px;
-            left: 50%;
-            transform: translateX(-50%);
+
+        @keyframes slideInLeft {
+          from {
+            opacity: 0;
+            transform: translateX(-20px) scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0) scale(1);
           }
         }
       `}</style>
-    </div>
+    </button>
   )
 }

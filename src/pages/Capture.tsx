@@ -14,11 +14,13 @@ export default function Capture() {
 
     const videoRef = useRef<HTMLVideoElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
-    const fileInputRef = useRef<HTMLInputElement>(null)
+
+    const galleryInputRef = useRef<HTMLInputElement>(null)
+    const cameraInputRef = useRef<HTMLInputElement>(null)
     const streamRef = useRef<MediaStream | null>(null)
 
     const [isReady, setIsReady] = useState(false)
-    const [facing, setFacing] = useState<CameraFacing>('environment')
+    const [facing] = useState<CameraFacing>('environment')
     const [captured, setCaptured] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [isStarting, setIsStarting] = useState(false)
@@ -124,7 +126,10 @@ export default function Capture() {
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="1" y1="1" x2="23" y2="23" /><path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v9.34" /></svg>
                     <p>{error}</p>
                     <div className="err-btns">
-                        <button className="glass-btn" onClick={() => fileInputRef.current?.click()}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg></button>
+                        <button className="glass-btn" onClick={() => galleryInputRef.current?.click()}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg></button>
+                        <button className="glass-btn primary" onClick={() => cameraInputRef.current?.click()} style={{ width: 64, height: 64 }}>
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
+                        </button>
                         <button className="glass-btn" onClick={startCamera}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg></button>
                         <button className="glass-btn" onClick={() => navigate(-1)}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg></button>
                     </div>
@@ -146,17 +151,19 @@ export default function Capture() {
 
                     {/* Bottom Controls */}
                     <div className="ctrls">
-                        <button className="glass-btn" onClick={() => fileInputRef.current?.click()}>
+                        <button className="glass-btn" onClick={() => galleryInputRef.current?.click()}>
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                        </button>
+
+                        <button className="glass-btn" onClick={() => cameraInputRef.current?.click()}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
                         </button>
 
                         <button className="shutter" onClick={snap} disabled={!isReady}>
                             <span className="outer"><span className="inner" /></span>
                         </button>
 
-                        <button className="glass-btn" onClick={() => { setIsReady(false); setFacing(f => f === 'environment' ? 'user' : 'environment') }} disabled={!isReady}>
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
-                        </button>
+
                     </div>
                 </div>
             )}
@@ -181,7 +188,8 @@ export default function Capture() {
                 </div>
             )}
 
-            <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={onFile} hidden />
+            <input ref={galleryInputRef} type="file" accept="image/*" onChange={onFile} hidden />
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={onFile} hidden />
             <canvas ref={canvasRef} hidden />
 
             <style>{`
@@ -198,7 +206,7 @@ export default function Capture() {
         position: absolute; bottom: 0; left: 0; right: 0;
         padding: 20px 30px;
         padding-bottom: max(20px, env(safe-area-inset-bottom, 20px));
-        display: flex; align-items: center; justify-content: space-between;
+        display: flex; align-items: center; justify-content: space-evenly;
         background: transparent;
         z-index: 20;
     }
