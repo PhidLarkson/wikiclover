@@ -1,6 +1,10 @@
 {
     "rewrites": [
         {
+            "source": "/w/api.php",
+            "destination": "https://commons.wikimedia.org/w/api.php"
+        },
+        {
             "source": "/(.*)",
             "destination": "/index.html"
         }

@@ -4,7 +4,7 @@
  * Provides functions to interact with the MediaWiki Action API
  */
 
-const API_BASE = import.meta.env.VITE_WIKIMEDIA_API_BASE || 'https://commons.wikimedia.org/w/api.php'
+const API_BASE = import.meta.env.VITE_WIKIMEDIA_API_BASE || '/w/api.php'
 
 export interface MediaFile {
     pageid: number

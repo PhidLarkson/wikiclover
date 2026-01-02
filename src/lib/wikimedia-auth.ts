@@ -5,7 +5,7 @@
  */
 
 const WIKIMEDIA_AUTH_BASE = 'https://meta.wikimedia.org/w/rest.php/oauth2' // Basic OAuth & API configuration
-export const WIKIMEDIA_API_BASE = 'https://commons.wikimedia.org/w/api.php'
+export const WIKIMEDIA_API_BASE = '/w/api.php'
 
 const STORAGE_KEYS = {
     ACCESS_TOKEN: 'wikicommons_access_token',
@@ -186,7 +186,7 @@ export async function fetchUserInfo(): Promise<WikimediaUser | null> {
     if (!token) return null
 
     try {
-        const url = `${WIKIMEDIA_API_BASE}?action=query&meta=userinfo&uiprop=editcount|registration&format=json&origin=*`
+        const url = `${WIKIMEDIA_API_BASE}?action=query&meta=userinfo&uiprop=editcount|registration&format=json`
         console.log('Fetching user info from:', url)
 
         const res = await fetch(url, {
@@ -199,8 +199,6 @@ export async function fetchUserInfo(): Promise<WikimediaUser | null> {
         }
 
         const data = await res.json()
-        console.log('User info raw data:', data)
-
         const userinfo = data.query?.userinfo
 
         if (userinfo?.id) {
