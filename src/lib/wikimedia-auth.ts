@@ -186,11 +186,23 @@ export async function fetchUserInfo(): Promise<WikimediaUser | null> {
     if (!token) return null
 
     try {
-        const res = await fetch(`${WIKIMEDIA_API_BASE}?action=query&meta=userinfo&uiprop=editcount|registration&format=json&origin=*`, {
+        const url = `${WIKIMEDIA_API_BASE}?action=query&meta=userinfo&uiprop=editcount|registration&format=json&origin=*`
+        console.log('Fetching user info from:', url)
+
+        const res = await fetch(url, {
             headers: { Authorization: `Bearer ${token}` },
         })
+
+        if (!res.ok) {
+            console.error('User info fetch failed:', res.status, res.statusText)
+            return null
+        }
+
         const data = await res.json()
+        console.log('User info raw data:', data)
+
         const userinfo = data.query?.userinfo
+
         if (userinfo?.id) {
             const user: WikimediaUser = {
                 id: userinfo.id,
@@ -200,6 +212,8 @@ export async function fetchUserInfo(): Promise<WikimediaUser | null> {
             }
             localStorage.setItem(STORAGE_KEYS.USER_INFO, JSON.stringify(user))
             return user
+        } else {
+            console.error('User info missing ID:', userinfo)
         }
     } catch (err) {
         console.error('Failed to fetch user info:', err)
