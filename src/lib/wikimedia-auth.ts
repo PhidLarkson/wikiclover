@@ -5,7 +5,7 @@
  */
 
 const WIKIMEDIA_AUTH_BASE = 'https://meta.wikimedia.org/w/rest.php/oauth2' // Basic OAuth & API configuration
-export const WIKIMEDIA_API_BASE = '/w/api.php'
+export const WIKIMEDIA_API_BASE = 'https://commons.wikimedia.org/w/api.php'
 
 const STORAGE_KEYS = {
     ACCESS_TOKEN: 'wikicommons_access_token',
