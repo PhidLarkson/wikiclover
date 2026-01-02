@@ -1,83 +1,52 @@
-# WikiCommons Camera App
+# WikiClover
 
-A PWA for browsing, capturing, and uploading media to Wikimedia Commons — inspired by Zora's social media stacks and Locket's intimate photo sharing.
+**Capture the world for Wikimedia Commons.**
+
+WikiClover is a modern Progressive Web App (PWA) that reimagines the experience of contributing to the world's largest free media repository. Inspired by premium social experiences, it makes browsing, capturing, and uploading heritage and nature photography seamless and beautiful.
 
 ## Features
 
-- 📸 **Camera Capture** — Take photos directly in the app
-- 🎨 **Zora-style Feed** — Swipeable media stacks from Commons
-- 👤 **User Profiles** — View your uploads and stats
-- 🔐 **Wikimedia OAuth** — Secure login with your Wikimedia account
-- 📱 **PWA** — Install on your home screen
+*   **Smart Feed**: Discover high-quality images from around the world (and nearby!) in a swipeable, edge-to-edge feed.
+*   **Nearby Discovery**: Find missing heritage sites around you using geolocation and contribute photos instantly.
+*   **Guest Mode**: Explore the Commons without needing an account immediately.
+*   **Accessibility First**: Built-in support for OpenDyslexic font, high contrast, reduced motion, and large text.
 
-## Quick Start
+## contributing
 
-```bash
-# Install dependencies
-npm install
+We welcome contributions! Whether you're a developer, designer, or wikimedian, help us build the best contribution tool for the movement.
 
-# Start development server
-npm run dev
-```
+### Getting Started
 
-## OAuth Setup (Required for Uploads)
+1.  **Clone the repository**
+    ```bash
+    git clone https://github.com/PhidLarkson/wikiclover.git
+    cd wikiclover
+    ```
 
-To enable user authentication and uploads, you need to register an OAuth application with Wikimedia:
+2.  **Install Dependencies**
+    ```bash
+    npm install
+    ```
 
-### 1. Create Wikimedia Account
-If you don't have one, create an account at [commons.wikimedia.org](https://commons.wikimedia.org)
+3.  **Run Development Server**
+    ```bash
+    npm run dev
+    ```
+    Open `http://localhost:5173` to see the app.
 
-### 2. Register OAuth Application
-1. Visit: https://meta.wikimedia.org/wiki/Special:OAuthConsumerRegistration/propose
-2. Fill out the form:
-   - **Application name**: WikiCommons Camera App
-   - **OAuth protocol version**: OAuth 2.0
-   - **Callback URL**: `http://localhost:5173/auth/callback` (for development)
-   - **Grants needed**:
-     - ✅ High-volume editing
-     - ✅ Upload new files
-     - ✅ Upload, replace, and move files
+### Setting up Authenticated Uploads
 
-3. Submit and wait for approval (usually automatic)
+To test uploading features, you need a Wikimedia OAuth 2.0 consumer.
+1.  Register a new tool at [meta.wikimedia.org/wiki/Special:OAuthConsumerRegistration/propose](https://meta.wikimedia.org/wiki/Special:OAuthConsumerRegistration/propose).
+2.  Set the callback URL to `http://localhost:5173/auth/callback`.
+3.  Create a `.env` file based on `.env.example`:
+    ```bash
+    cp .env.example .env
+    ```
+4.  Add your Client ID and Secret.
 
-### 3. Configure Environment
-Create `.env.local` with your credentials:
 
-```env
-VITE_WIKIMEDIA_CLIENT_ID=your_client_id_here
-VITE_WIKIMEDIA_REDIRECT_URI=http://localhost:5173/auth/callback
-```
-
-## Tech Stack
-
-- **React 18** + TypeScript
-- **Vite** for fast development
-- **React Router** for navigation
-- **vite-plugin-pwa** for offline support
-- **Wikimedia Commons API** for media
-
-## Scripts
-
-```bash
-npm run dev      # Start dev server
-npm run build    # Build for production
-npm run preview  # Preview production build
-npm run lint     # Run ESLint
-```
-
-## Project Structure
-
-```
-src/
-├── components/     # Reusable UI components
-├── context/        # React contexts (Auth)
-├── lib/            # API clients and utilities
-│   ├── wikimedia-auth.ts  # OAuth 2.0 + PKCE
-│   └── wikimedia-api.ts   # Commons API wrapper
-├── pages/          # Route pages
-└── index.css       # Design system
-```
 
 ## License
 
-MIT
+This project is open source and available under the **MIT License**.

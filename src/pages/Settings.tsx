@@ -303,7 +303,7 @@ export default function Settings() {
                         <a href="https://x.com/jalilabs" target="_blank" rel="noreferrer" className="icon-link" aria-label="X">
                             <XIcon />
                         </a>
-                        <a href="https://github.com/phiddy/wikicommons-camera" target="_blank" rel="noreferrer" className="icon-link" aria-label="Code">
+                        <a href="https://github.com/PhidLarkson/wikiclover" target="_blank" rel="noreferrer" className="icon-link" aria-label="Code">
                             <GitHubIcon />
                         </a>
                     </div>
