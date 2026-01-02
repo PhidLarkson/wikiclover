@@ -31,11 +31,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<WikimediaUser | null>(() => getStoredUserInfo())
     const [isGuest, setIsGuest] = useState(false)
     const [isLoading, setIsLoading] = useState(true)
-
-    const isLoggedIn = checkLoggedIn()
+    const [isLoggedIn, setIsLoggedIn] = useState(checkLoggedIn())
 
     const refreshUser = useCallback(async () => {
-        if (checkLoggedIn()) {
+        const loggedIn = checkLoggedIn()
+        setIsLoggedIn(loggedIn)
+
+        if (loggedIn) {
             const userInfo = await fetchUserInfo()
             setUser(userInfo)
         } else {
@@ -62,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const logout = () => {
         authLogout()
         setUser(null)
+        setIsLoggedIn(false)
         setIsGuest(false)
     }
 
