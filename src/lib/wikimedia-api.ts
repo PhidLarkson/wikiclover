@@ -37,8 +37,8 @@ interface ApiResponse {
 }
 
 async function fetchApi(params: Record<string, string>): Promise<ApiResponse> {
-    const url = new URL(API_BASE)
-    Object.entries({ ...params, format: 'json', origin: '*' }).forEach(([k, v]) => {
+    const url = new URL(API_BASE, window.location.origin)
+    Object.entries({ ...params, format: 'json' }).forEach(([k, v]) => {
         url.searchParams.set(k, v)
     })
 
