@@ -31,7 +31,7 @@ export function PWAProvider({ children }: { children: ReactNode }) {
         const handler = (e: Event) => {
             e.preventDefault()
             // Check if dismissed recently (e.g. today)
-            const dismissedAt = localStorage.getItem('pwa_dismissed_ts')
+            // const dismissedAt = localStorage.getItem('pwa_dismissed_ts')
             // Debugging: Always show prompt
             // if (dismissedAt) {
             //     const hoursSince = (Date.now() - parseInt(dismissedAt)) / (1000 * 60 * 60)
