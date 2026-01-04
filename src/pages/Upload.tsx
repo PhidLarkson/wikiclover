@@ -26,11 +26,17 @@ export default function Upload() {
 
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+    const [locationStr, setLocationStr] = useState('')
     const [license, setLicense] = useState<UploadParams['license']>('cc-by-sa-4.0')
+
+    // Toggle for advanced
     const [showAdvanced, setShowAdvanced] = useState(false)
+
     const [categoryInput, setCategoryInput] = useState('')
     const [categories, setCategories] = useState<string[]>([])
     const [suggestions, setSuggestions] = useState<string[]>([])
+
     const [uploading, setUploading] = useState(false)
     const [progress, setProgress] = useState('')
     const [error, setError] = useState('')
@@ -88,10 +94,11 @@ export default function Upload() {
                 filename,
                 description: description.trim(),
                 source: '{{own}}',
-                date: new Date().toISOString().split('T')[0],
+                date,
                 author: `[[User:${user?.username}|${user?.username}]]`,
                 license,
                 categories,
+                location: locationStr.trim() || undefined
             }, token)
 
             if (result.success) {
@@ -116,54 +123,101 @@ export default function Upload() {
     if (!imageData) return null
 
     return (
-        <div className="upload">
-            <header className="glass">
-                <button className="hb" onClick={() => navigate(-1)}>
+        <div className="upload-page">
+            <header className="glass-header">
+                <button className="icon-btn" onClick={() => navigate(-1)}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
                 </button>
-                <span className="tt">Upload details</span>
+                <span className="page-title">Upload Details</span>
                 <div style={{ width: 40 }} />
             </header>
 
-            <div className="form-container">
-                <div className="preview-card glass">
-                    <img src={imageData} alt="Preview" />
+            <main className="content">
+                <div className="preview-container">
+                    <img src={imageData} alt="Preview" className="preview-img" />
                 </div>
 
-                <div className="fields">
-                    <div className="group glass">
-                        <label>Title <span className="req">*</span></label>
-                        <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="E.g., Sunset in Kyoto 2024" />
+                <div className="form-section">
+                    {/* Basic Info */}
+                    <div className="card glass">
+                        <div className="input-group">
+                            <label>Title <span className="required">*</span></label>
+                            <input
+                                type="text"
+                                value={title}
+                                onChange={e => setTitle(e.target.value)}
+                                placeholder="E.g., Sunset in Kyoto 2026"
+                                disabled={uploading}
+                            />
+                        </div>
+
+                        <div className="input-group">
+                            <label>Description <span className="required">*</span></label>
+                            <textarea
+                                value={description}
+                                onChange={e => setDescription(e.target.value)}
+                                placeholder="Describe what is in this image..."
+                                rows={3}
+                                disabled={uploading}
+                            />
+                        </div>
                     </div>
 
-                    <div className="group glass">
-                        <label>Description <span className="req">*</span></label>
-                        <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Describe what is in this image..." rows={3} />
-                    </div>
-
-                    <div className="advanced-toggle" onClick={() => setShowAdvanced(!showAdvanced)}>
+                    {/* Advanced Toggle */}
+                    <button
+                        className={`advanced-toggle ${showAdvanced ? 'active' : ''}`}
+                        onClick={() => setShowAdvanced(!showAdvanced)}
+                    >
                         <span>Advanced Details</span>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0)' }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                            style={{ transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.3s' }}>
                             <polyline points="6 9 12 15 18 9" />
                         </svg>
-                    </div>
+                    </button>
 
+                    {/* Advanced Section */}
                     {showAdvanced && (
-                        <div className="advanced-section">
-                            <div className="group glass">
+                        <div className="card glass advanced-fields fade-in">
+                            <div className="input-row">
+                                <div className="input-group half">
+                                    <label>Date</label>
+                                    <input
+                                        type="date"
+                                        value={date}
+                                        onChange={e => setDate(e.target.value)}
+                                        disabled={uploading}
+                                    />
+                                </div>
+                                <div className="input-group half">
+                                    <label>Location (Optional)</label>
+                                    <input
+                                        type="text"
+                                        value={locationStr}
+                                        onChange={e => setLocationStr(e.target.value)}
+                                        placeholder="e.g. 40.7128, -74.0060"
+                                        disabled={uploading}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="input-group">
                                 <label>License</label>
-                                <select value={license} onChange={e => setLicense(e.target.value as UploadParams['license'])}>
+                                <select
+                                    value={license}
+                                    onChange={e => setLicense(e.target.value as UploadParams['license'])}
+                                    disabled={uploading}
+                                >
                                     {LICENSES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
                                 </select>
                             </div>
 
-                            <div className="group glass">
+                            <div className="input-group">
                                 <label>Categories</label>
-                                <div className="cats">
+                                <div className="tags-container">
                                     {categories.map(c => (
-                                        <span key={c} className="cat">
+                                        <span key={c} className="tag">
                                             {c}
-                                            <button onClick={() => removeCategory(c)}>×</button>
+                                            <button onClick={() => removeCategory(c)} disabled={uploading}>×</button>
                                         </span>
                                     ))}
                                 </div>
@@ -172,12 +226,15 @@ export default function Upload() {
                                     value={categoryInput}
                                     onChange={e => setCategoryInput(e.target.value)}
                                     placeholder="Search categories..."
-                                    className="cat-input"
+                                    className="search-input"
+                                    disabled={uploading}
                                 />
                                 {suggestions.length > 0 && (
-                                    <div className="sugg">
+                                    <div className="suggestions-list">
                                         {suggestions.map(s => (
-                                            <button key={s} onClick={() => addCategory(s)}>{s}</button>
+                                            <button key={s} onClick={() => addCategory(s)} className="suggestion-item">
+                                                {s}
+                                            </button>
                                         ))}
                                     </div>
                                 )}
@@ -185,77 +242,275 @@ export default function Upload() {
                         </div>
                     )}
                 </div>
+            </main>
 
-                {error && <div className="alert error">{error}</div>}
-                {progress && <div className="alert info">{progress}</div>}
+            <footer className="footer-actions glass-footer">
+                {error && <div className="status-msg error">{error}</div>}
+                {progress && <div className="status-msg info">{progress}</div>}
 
-                <div className="action-area">
-                    <button className="submit-btn" onClick={handleSubmit} disabled={uploading || !title.trim() || !description.trim()}>
-                        {uploading ? 'Uploading...' : 'Publish to Commons'}
-                    </button>
-                    <p className="terms">By publishing, you agree to the <a href="#">Terms of Use</a></p>
-                </div>
-            </div>
+                <button
+                    className="primary-btn"
+                    onClick={handleSubmit}
+                    disabled={uploading || !title.trim() || !description.trim()}
+                >
+                    {uploading ? 'Uploading...' : 'Publish to Commons'}
+                </button>
+                <p className="terms-text">By publishing, you agree to the <a href="#">Terms of Use</a></p>
+            </footer>
 
             <style>{`
-        .upload { display: flex; flex-direction: column; height: 100%; background: var(--bg); }
-        .glass { background: rgba(var(--bg-card-rgb), 0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); }
-        
-        header { display: flex; align-items: center; justify-content: space-between; padding: 16px; position: sticky; top: 0; z-index: 10; margin-bottom: 10px; }
-        .hb { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--text); }
-        .tt { font-weight: 600; font-size: 16px; }
+                .upload-page {
+                    display: flex;
+                    flex-direction: column;
+                    height: 100vh;
+                    background: var(--bg);
+                    color: var(--text);
+                }
 
-        .form-container { flex: 1; overflow-y: auto; padding: 0 20px 40px; display: flex; flex-direction: column; gap: 20px; }
+                .glass-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 16px;
+                    background: rgba(var(--bg-card-rgb), 0.8);
+                    backdrop-filter: blur(12px);
+                    -webkit-backdrop-filter: blur(12px);
+                    border-bottom: 1px solid var(--border);
+                    z-index: 10;
+                }
 
-        .preview-card { padding: 10px; border-radius: 20px; text-align: center; }
-        .preview-card img { max-height: 240px; max-width: 100%; border-radius: 12px; object-fit: contain; }
+                .page-title {
+                    font-weight: 600;
+                    font-size: 16px;
+                }
 
-        .fields { display: flex; flex-direction: column; gap: 16px; }
-        .group { padding: 16px; border-radius: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .group label { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
-        .req { color: var(--accent); }
-        
-        input, textarea, select {
-            background: transparent; border: none; outline: none;
-            color: var(--text); font-size: 16px; font-family: inherit; width: 100%;
-        }
-        select { background: var(--bg-card); color: var(--text); padding: 8px; border-radius: 8px; }
-        textarea { resize: none; min-height: 80px; }
-        .cat-input { border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+                .icon-btn {
+                    width: 40px;
+                    height: 40px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: var(--text);
+                    background: transparent;
+                    border: none;
+                    cursor: pointer;
+                }
 
-        .advanced-toggle {
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            padding: 12px;
-            color: var(--text-muted); font-size: 14px; font-weight: 500;
-            cursor: pointer;
-        }
-        
-        .cats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-        .cat { display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: rgba(var(--accent-hue), var(--accent-saturation), var(--accent-lightness), 0.2); color: var(--accent); border-radius: 100px; font-size: 12px; font-weight: 600; }
-        .cat button { font-size: 16px; opacity: 0.7; }
+                .content {
+                    flex: 1;
+                    overflow-y: auto;
+                    padding: 20px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 20px;
+                    padding-bottom: 100px; /* Space for footer */
+                }
 
-        .sugg { margin-top: 10px; max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; }
-        .sugg button { padding: 10px; text-align: left; font-size: 14px; border-bottom: 1px solid var(--border); }
+                .preview-container {
+                    display: flex;
+                    justify-content: center;
+                    margin-bottom: 10px;
+                }
 
-        .alert { padding: 16px; border-radius: 16px; font-size: 14px; text-align: center; font-weight: 500; }
-        .error { background: rgba(255, 59, 48, 0.1); color: #ff3b30; }
-        .info { background: rgba(var(--accent-hue), var(--accent-saturation), var(--accent-lightness), 0.1); color: var(--accent); }
+                .preview-img {
+                    max-height: 300px;
+                    max-width: 100%;
+                    border-radius: 16px;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+                    object-fit: contain;
+                }
 
-        .action-area { margin-top: 20px; text-align: center; }
-        .submit-btn {
-            width: 100%; padding: 16px;
-            background: var(--accent); color: white;
-            font-size: 16px; font-weight: 600;
-            border-radius: 20px;
-            box-shadow: 0 4px 20px rgba(var(--accent-hue), var(--accent-saturation), var(--accent-lightness), 0.4);
-            transition: transform 0.2s;
-        }
-        .submit-btn:active { transform: scale(0.98); }
-        .submit-btn:disabled { opacity: 0.5; transform: none; box-shadow: none; }
-        
-        .terms { margin-top: 16px; font-size: 12px; color: var(--text-muted); }
-        .terms a { color: var(--text-secondary); text-decoration: underline; }
-      `}</style>
+                .card {
+                    padding: 20px;
+                    border-radius: 20px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 16px;
+                    margin-bottom: 10px;
+                }
+
+                .glass {
+                    background: var(--bg-card);
+                    border: 1px solid var(--border);
+                }
+
+                .input-group {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                }
+
+                .input-group label {
+                    font-size: 12px;
+                    font-weight: 600;
+                    color: var(--text-muted);
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+
+                .required { color: var(--accent); }
+
+                input, textarea, select {
+                    background: var(--bg-input, rgba(255,255,255,0.05));
+                    border: 1px solid var(--border);
+                    border-radius: 12px;
+                    padding: 12px;
+                    color: var(--text);
+                    font-size: 16px;
+                    font-family: inherit;
+                    width: 100%;
+                    transition: border-color 0.2s;
+                }
+
+                input:focus, textarea:focus, select:focus {
+                    border-color: var(--accent);
+                    outline: none;
+                }
+
+                textarea { resize: none; min-height: 100px; }
+
+                .advanced-toggle {
+                    width: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 16px;
+                    background: transparent;
+                    border: none;
+                    color: var(--text-muted);
+                    font-weight: 500;
+                    cursor: pointer;
+                    border-radius: 12px;
+                }
+
+                .advanced-toggle:hover {
+                    background: rgba(255,255,255,0.03);
+                    color: var(--text);
+                }
+
+                .advanced-fields {
+                    margin-top: 10px;
+                }
+
+                .input-row {
+                    display: flex;
+                    gap: 12px;
+                }
+                .half { flex: 1; }
+
+                .tags-container {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 8px;
+                    margin-bottom: 8px;
+                }
+
+                .tag {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 6px 12px;
+                    background: rgba(var(--accent-rgb), 0.15);
+                    color: var(--accent);
+                    border-radius: 100px;
+                    font-size: 13px;
+                    font-weight: 500;
+                }
+
+                .tag button {
+                    background: none;
+                    border: none;
+                    color: currentColor;
+                    opacity: 0.6;
+                    font-size: 18px;
+                    line-height: 1;
+                    cursor: pointer;
+                    padding: 0;
+                }
+
+                .suggestions-list {
+                    margin-top: 8px;
+                    background: var(--bg-card);
+                    border: 1px solid var(--border);
+                    border-radius: 12px;
+                    max-height: 200px;
+                    overflow-y: auto;
+                    display: flex;
+                    flex-direction: column;
+                }
+
+                .suggestion-item {
+                    padding: 12px;
+                    text-align: left;
+                    background: none;
+                    border: none;
+                    border-bottom: 1px solid var(--border);
+                    color: var(--text);
+                    cursor: pointer;
+                }
+
+                .suggestion-item:hover {
+                    background: rgba(255,255,255,0.05);
+                }
+
+                .footer-actions {
+                    position: fixed;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    padding: 20px;
+                    background: var(--bg);
+                    border-top: 1px solid var(--border);
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                    z-index: 20;
+                }
+
+                .glass-footer {
+                    background: rgba(var(--bg-rgb), 0.9);
+                    backdrop-filter: blur(20px);
+                }
+
+                .primary-btn {
+                    width: 100%;
+                    padding: 16px;
+                    background: var(--accent);
+                    color: white;
+                    font-size: 16px;
+                    font-weight: 600;
+                    border: none;
+                    border-radius: 16px;
+                    cursor: pointer;
+                    box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.3);
+                    transition: transform 0.2s, opacity 0.2s;
+                }
+
+                .primary-btn:active { transform: scale(0.98); }
+                .primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+                .terms-text {
+                    text-align: center;
+                    font-size: 12px;
+                    color: var(--text-muted);
+                }
+
+                .status-msg {
+                    padding: 12px;
+                    border-radius: 12px;
+                    font-size: 14px;
+                    text-align: center;
+                    font-weight: 500;
+                }
+                .error { background: rgba(255, 59, 48, 0.1); color: #ff3b30; }
+                .info { background: rgba(var(--accent-rgb), 0.1); color: var(--accent); }
+
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(-10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .fade-in { animation: fadeIn 0.3s ease-out; }
+            `}</style>
         </div>
     )
 }

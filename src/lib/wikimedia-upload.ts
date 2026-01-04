@@ -39,6 +39,7 @@ export interface UploadParams {
     author: string
     license: 'cc-by-sa-4.0' | 'cc-by-4.0' | 'cc0'
     categories: string[]
+    location?: string
 }
 
 /**
@@ -56,6 +57,10 @@ function buildInformationTemplate(params: UploadParams): string {
         .map(c => `[[Category:${c.trim()}]]`)
         .join('\n')
 
+    const locationTemplate = params.location
+        ? `\n{{Location|${params.location}}}`
+        : ''
+
     return `=={{int:filedesc}}==
 {{Information
 |description={{en|1=${params.description}}}
@@ -64,7 +69,7 @@ function buildInformationTemplate(params: UploadParams): string {
 |author=${params.author}
 |permission=
 |other versions=
-}}
+}}${locationTemplate}
 
 =={{int:license-header}}==
 ${licenseTemplate}
