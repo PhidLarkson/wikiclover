@@ -24,21 +24,12 @@ export default function Upload() {
     const imageData = location.state?.imageData as string | undefined
     const draftId = location.state?.draftId as string | undefined
 
-    // Basic Info
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
-
-    // Advanced Info
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0])
-    const [lat, setLat] = useState('')
-    const [lon, setLon] = useState('')
     const [license, setLicense] = useState<UploadParams['license']>('cc-by-sa-4.0')
-    const [attributionName, setAttributionName] = useState('')
-    const [categories, setCategories] = useState<string[]>([])
-
-    // UI State
     const [showAdvanced, setShowAdvanced] = useState(false)
     const [categoryInput, setCategoryInput] = useState('')
+    const [categories, setCategories] = useState<string[]>([])
     const [suggestions, setSuggestions] = useState<string[]>([])
     const [uploading, setUploading] = useState(false)
     const [progress, setProgress] = useState('')
@@ -47,11 +38,7 @@ export default function Upload() {
     useEffect(() => {
         if (!isLoggedIn) navigate('/login')
         if (!imageData) navigate('/mine')
-
-        // Try to get location from image metadata if possible (stub for now, later could invoke EXIF reader)
-        if (location.state?.lat) setLat(location.state.lat)
-        if (location.state?.lon) setLon(location.state.lon)
-    }, [isLoggedIn, imageData, navigate, location.state])
+    }, [isLoggedIn, imageData, navigate])
 
     // Category search
     const searchCats = useCallback(async (q: string) => {
@@ -101,13 +88,10 @@ export default function Upload() {
                 filename,
                 description: description.trim(),
                 source: '{{own}}',
-                date,
+                date: new Date().toISOString().split('T')[0],
                 author: `[[User:${user?.username}|${user?.username}]]`,
                 license,
                 categories,
-                lat: lat ? parseFloat(lat) : undefined,
-                lon: lon ? parseFloat(lon) : undefined,
-                attributionName: attributionName.trim() || undefined,
             }, token)
 
             if (result.success) {
@@ -133,7 +117,7 @@ export default function Upload() {
 
     return (
         <div className="upload">
-            <header className="upload-header glass">
+            <header className="glass">
                 <button className="hb" onClick={() => navigate(-1)}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
                 </button>
@@ -148,9 +132,8 @@ export default function Upload() {
 
                 <div className="fields">
                     <div className="group glass">
-                        <label>Title (Filename) <span className="req">*</span></label>
+                        <label>Title <span className="req">*</span></label>
                         <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="E.g., Sunset in Kyoto 2024" />
-                        <span className="hint">Descriptive and unique</span>
                     </div>
 
                     <div className="group glass">
@@ -159,7 +142,7 @@ export default function Upload() {
                     </div>
 
                     <div className="advanced-toggle" onClick={() => setShowAdvanced(!showAdvanced)}>
-                        <span>Advanced Details (Optional)</span>
+                        <span>Advanced Details</span>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0)' }}>
                             <polyline points="6 9 12 15 18 9" />
                         </svg>
@@ -167,37 +150,14 @@ export default function Upload() {
 
                     {showAdvanced && (
                         <div className="advanced-section">
-                            <div className="group glass anime-entry">
-                                <label>Date Taken</label>
-                                <input type="date" value={date} onChange={e => setDate(e.target.value)} />
-                            </div>
-
-                            <div className="group glass anime-entry" style={{ animationDelay: '0.1s' }}>
-                                <label>Location (Lat, Lon)</label>
-                                <div className="row">
-                                    <input type="number" value={lat} onChange={e => setLat(e.target.value)} placeholder="Latitude" step="any" />
-                                    <input type="number" value={lon} onChange={e => setLon(e.target.value)} placeholder="Longitude" step="any" />
-                                </div>
-                            </div>
-
-                            <div className="group glass anime-entry" style={{ animationDelay: '0.2s' }}>
+                            <div className="group glass">
                                 <label>License</label>
                                 <select value={license} onChange={e => setLicense(e.target.value as UploadParams['license'])}>
                                     {LICENSES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
                                 </select>
                             </div>
 
-                            <div className="group glass anime-entry" style={{ animationDelay: '0.25s' }}>
-                                <label>Attribution Name (Optional)</label>
-                                <input
-                                    type="text"
-                                    value={attributionName}
-                                    onChange={e => setAttributionName(e.target.value)}
-                                    placeholder="Enter name to be credited (if different from username)"
-                                />
-                            </div>
-
-                            <div className="group glass anime-entry" style={{ animationDelay: '0.3s' }}>
+                            <div className="group glass">
                                 <label>Categories</label>
                                 <div className="cats">
                                     {categories.map(c => (
@@ -239,9 +199,9 @@ export default function Upload() {
 
             <style>{`
         .upload { display: flex; flex-direction: column; height: 100%; background: var(--bg); }
-        .upload-header { display: flex; align-items: center; justify-content: space-between; padding: 16px; position: sticky; top: 0; z-index: 10; margin-bottom: 10px; }
         .glass { background: rgba(var(--bg-card-rgb), 0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); }
         
+        header { display: flex; align-items: center; justify-content: space-between; padding: 16px; position: sticky; top: 0; z-index: 10; margin-bottom: 10px; }
         .hb { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--text); }
         .tt { font-weight: 600; font-size: 16px; }
 
@@ -254,16 +214,13 @@ export default function Upload() {
         .group { padding: 16px; border-radius: 20px; display: flex; flex-direction: column; gap: 10px; }
         .group label { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
         .req { color: var(--accent); }
-        .hint { font-size: 11px; color: var(--text-muted); }
         
-        .row { display: flex; gap: 10px; }
-        
-        .upload input, .upload textarea, .upload select {
+        input, textarea, select {
             background: transparent; border: none; outline: none;
             color: var(--text); font-size: 16px; font-family: inherit; width: 100%;
         }
-        .upload select { background: var(--bg-card); color: var(--text); padding: 8px; border-radius: 8px; }
-        .upload textarea { resize: none; min-height: 80px; }
+        select { background: var(--bg-card); color: var(--text); padding: 8px; border-radius: 8px; }
+        textarea { resize: none; min-height: 80px; }
         .cat-input { border-bottom: 1px solid var(--border); padding-bottom: 8px; }
 
         .advanced-toggle {
@@ -271,15 +228,8 @@ export default function Upload() {
             padding: 12px;
             color: var(--text-muted); font-size: 14px; font-weight: 500;
             cursor: pointer;
-            background: rgba(255,255,255,0.03);
-            border-radius: 12px;
-            transition: all 0.2s;
         }
-        .advanced-toggle:hover { background: rgba(255,255,255,0.06); }
         
-        .advanced-section { display: flex; flex-direction: column; gap: 16px; }
-        .anime-entry { animation: slideDown 0.3s ease-out backwards; }
-
         .cats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
         .cat { display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: rgba(var(--accent-hue), var(--accent-saturation), var(--accent-lightness), 0.2); color: var(--accent); border-radius: 100px; font-size: 12px; font-weight: 600; }
         .cat button { font-size: 16px; opacity: 0.7; }
@@ -294,7 +244,7 @@ export default function Upload() {
         .action-area { margin-top: 20px; text-align: center; }
         .submit-btn {
             width: 100%; padding: 16px;
-            background: var(--accent); color: var(--accent-fg);
+            background: var(--accent); color: white;
             font-size: 16px; font-weight: 600;
             border-radius: 20px;
             box-shadow: 0 4px 20px rgba(var(--accent-hue), var(--accent-saturation), var(--accent-lightness), 0.4);
@@ -305,11 +255,6 @@ export default function Upload() {
         
         .terms { margin-top: 16px; font-size: 12px; color: var(--text-muted); }
         .terms a { color: var(--text-secondary); text-decoration: underline; }
-
-        @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
       `}</style>
         </div>
     )
