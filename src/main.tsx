@@ -5,8 +5,7 @@ import App from './App'
 import { registerSW } from 'virtual:pwa-register'
 
 // Register Service Worker
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const updateSW = registerSW({
+registerSW({
     onNeedRefresh() {
         console.log('New content available, click on reload button to update.')
     },
