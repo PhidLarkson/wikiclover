@@ -32,10 +32,11 @@ export function PWAProvider({ children }: { children: ReactNode }) {
             e.preventDefault()
             // Check if dismissed recently (e.g. today)
             const dismissedAt = localStorage.getItem('pwa_dismissed_ts')
-            if (dismissedAt) {
-                const hoursSince = (Date.now() - parseInt(dismissedAt)) / (1000 * 60 * 60)
-                if (hoursSince < 24) return // Don't show if dismissed in last 24h
-            }
+            // Debugging: Always show prompt
+            // if (dismissedAt) {
+            //     const hoursSince = (Date.now() - parseInt(dismissedAt)) / (1000 * 60 * 60)
+            //     if (hoursSince < 24) return // Don't show if dismissed in last 24h
+            // }
 
             setInstallPrompt(e)
         }
