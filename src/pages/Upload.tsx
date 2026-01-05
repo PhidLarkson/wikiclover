@@ -242,21 +242,23 @@ export default function Upload() {
                         </div>
                     )}
                 </div>
+
+                <div className="upload-actions-flow">
+                    {error && <div className="status-msg error">{error}</div>}
+                    {progress && <div className="status-msg info">{progress}</div>}
+
+                    <button
+                        className="primary-btn"
+                        onClick={handleSubmit}
+                        disabled={uploading || !title.trim() || !description.trim()}
+                    >
+                        {uploading ? 'Uploading...' : 'Publish to Commons'}
+                    </button>
+                    <p className="terms-text">By publishing, you agree to the <a href="#">Terms of Use</a></p>
+                </div>
             </main>
 
-            <footer className="footer-actions glass-footer">
-                {error && <div className="status-msg error">{error}</div>}
-                {progress && <div className="status-msg info">{progress}</div>}
 
-                <button
-                    className="primary-btn"
-                    onClick={handleSubmit}
-                    disabled={uploading || !title.trim() || !description.trim()}
-                >
-                    {uploading ? 'Uploading...' : 'Publish to Commons'}
-                </button>
-                <p className="terms-text">By publishing, you agree to the <a href="#">Terms of Use</a></p>
-            </footer>
 
             <style>{`
                 .upload-page {
@@ -303,7 +305,7 @@ export default function Upload() {
                     display: flex;
                     flex-direction: column;
                     gap: 20px;
-                    padding-bottom: 100px; /* Space for footer */
+                    /* padding-bottom removed */
                 }
 
                 .preview-container {
@@ -453,23 +455,12 @@ export default function Upload() {
                     background: rgba(255,255,255,0.05);
                 }
 
-                .footer-actions {
-                    position: fixed;
-                    bottom: 0;
-                    left: 0;
-                    right: 0;
-                    padding: 20px;
-                    background: var(--bg);
-                    border-top: 1px solid var(--border);
+                .upload-actions-flow {
                     display: flex;
                     flex-direction: column;
                     gap: 12px;
-                    z-index: 20;
-                }
-
-                .glass-footer {
-                    background: rgba(var(--bg-rgb), 0.9);
-                    backdrop-filter: blur(20px);
+                    margin-top: 20px;
+                    padding-bottom: 40px;
                 }
 
                 .primary-btn {

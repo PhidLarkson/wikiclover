@@ -3,23 +3,28 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getUserUploads, getUserUploadCount, type MediaFile } from '@/lib/wikimedia-api'
+import { getUserUploads, getUserStats, type MediaFile } from '@/lib/wikimedia-api'
 import MediaDetail from '@/components/MediaDetail'
 import { followProfile, unfollowProfile, isFollowing } from '@/pages/Favorites'
 import { useToast } from '@/context/ToastContext'
+import { useAuth } from '@/context/AuthContext'
 
 export default function UserProfile() {
+    const { user } = useAuth()
     const { username } = useParams<{ username: string }>()
     const navigate = useNavigate()
     const { showToast } = useToast()
     const [uploads, setUploads] = useState<MediaFile[]>([])
-    const [totalCount, setTotalCount] = useState<number | null>(null)
+    const [stats, setStats] = useState<{ total: number; uploads: number } | null>(null)
+    const [showTooltip, setShowTooltip] = useState(false)
     const [loading, setLoading] = useState(true)
     const [loadingMore, setLoadingMore] = useState(false)
     const [continueToken, setContinueToken] = useState<string | undefined>(undefined)
     const [detailItem, setDetailItem] = useState<MediaFile | null>(null)
     const [following, setFollowing] = useState(false)
     const observer = useRef<IntersectionObserver | null>(null)
+
+    const isMe = user?.username === username
 
     const loadData = useCallback(async (token?: string) => {
         if (!username) return
@@ -45,7 +50,7 @@ export default function UserProfile() {
         setContinueToken(undefined)
         loadData()
         if (username) {
-            getUserUploadCount(username).then(setTotalCount)
+            getUserStats(username).then(setStats)
             setFollowing(isFollowing(username))
         }
     }, [loadData, username])
@@ -61,6 +66,20 @@ export default function UserProfile() {
         }
         setFollowing(!following)
     }
+
+    const toggleStatsTooltip = (e: React.MouseEvent) => {
+        e.stopPropagation()
+        setShowTooltip(!showTooltip)
+    }
+
+    // Close tooltip on clicking elsewhere
+    useEffect(() => {
+        if (showTooltip) {
+            const close = () => setShowTooltip(false)
+            window.addEventListener('click', close)
+            return () => window.removeEventListener('click', close)
+        }
+    }, [showTooltip])
 
     const lastElementRef = useCallback((node: HTMLDivElement | null) => {
         if (loading || loadingMore) return
@@ -84,25 +103,45 @@ export default function UserProfile() {
             <div className="profile-header">
                 <h1>{username}</h1>
                 <div className="stats">
-                    <div className="stat">
-                        <b>{totalCount !== null ? totalCount : uploads.length}</b>
-                        <span>Uploads</span>
+                    <div className="stat" onClick={toggleStatsTooltip}>
+                        <b>{stats ? stats.total : uploads.length}</b>
+                        <span>Contributions</span>
+
+                        {showTooltip && stats && (
+                            <div className="stat-tooltip" onClick={e => e.stopPropagation()}>
+                                <div className="tooltip-row">
+                                    <span>Total</span>
+                                    <b>{stats.total}</b>
+                                </div>
+                                <div className="tooltip-divider" />
+                                <div className="tooltip-row">
+                                    <span>Uploads</span>
+                                    <b>{stats.uploads >= 500 ? '500+' : stats.uploads}</b>
+                                </div>
+                                <div className="tooltip-row">
+                                    <span>Other Edits</span>
+                                    <b>{Math.max(0, stats.total - stats.uploads)}</b>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
                 <div className="action-row">
-                    <button className={`follow-btn ${following ? 'following' : ''}`} onClick={handleFollowToggle}>
-                        {following ? (
-                            <>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>
-                                Following
-                            </>
-                        ) : (
-                            <>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" /></svg>
-                                Follow
-                            </>
-                        )}
-                    </button>
+                    {!isMe && (
+                        <button className={`follow-btn ${following ? 'following' : ''}`} onClick={handleFollowToggle}>
+                            {following ? (
+                                <>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>
+                                    Following
+                                </>
+                            ) : (
+                                <>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" /></svg>
+                                    Follow
+                                </>
+                            )}
+                        </button>
+                    )}
                     <a href={`https://commons.wikimedia.org/wiki/User:${username}`} target="_blank" rel="noreferrer" className="ext-btn">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
                     </a>
@@ -140,13 +179,7 @@ export default function UserProfile() {
 
             {detailItem && detailItem.imageinfo?.[0] && (
                 <MediaDetail
-                    item={{
-                        title: detailItem.title.replace('File:', '').replace(/_/g, ' '),
-                        url: detailItem.imageinfo[0].url || detailItem.imageinfo[0].thumburl || '',
-                        thumburl: detailItem.imageinfo[0].thumburl,
-                        descriptionurl: detailItem.imageinfo[0].descriptionurl,
-                        author: detailItem.imageinfo[0].user
-                    }}
+                    item={detailItem}
                     onClose={() => setDetailItem(null)}
                 />
             )}
@@ -177,9 +210,53 @@ export default function UserProfile() {
                 h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); margin: 0; }
                 
                 .stats { display: flex; gap: 24px; }
-                .stat { display: flex; flex-direction: column; }
+                .stat { position: relative; display: flex; flex-direction: column; cursor: pointer; }
                 .stat b { font-size: 18px; font-weight: 600; color: var(--text); }
                 .stat span { font-size: 13px; color: var(--text-muted); }
+
+                .stat-tooltip {
+                    position: absolute;
+                    top: 100%;
+                    left: 0;
+                    margin-top: 12px;
+                    background: #222;
+                    border: 1px solid #333;
+                    border-radius: 12px;
+                    padding: 16px;
+                    z-index: 100;
+                    box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+                    animation: fadeScale 0.2s ease-out;
+                }
+                .stat-tooltip::after {
+                    content: '';
+                    position: absolute;
+                    bottom: 100%;
+                    left: 20px;
+                    border: 6px solid transparent;
+                    border-bottom-color: #1a1a1a;
+                }
+                
+                .tooltip-row {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 8px;
+                    font-size: 14px;
+                }
+                .tooltip-row:last-child { margin-bottom: 0; }
+                .tooltip-row span { color: #888; font-weight: 500; }
+                .tooltip-row b { color: #fff; font-weight: 600; font-family: monospace; }
+                
+                .tooltip-divider {
+                    height: 1px;
+                    background: #333;
+                    margin: 12px 0;
+                }
+                
+                @keyframes fadeScale {
+                    from { opacity: 0; transform: translateY(-5px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
 
                 .action-row { display: flex; gap: 10px; margin-top: 8px; }
                 

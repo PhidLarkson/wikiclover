@@ -7,7 +7,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 
 type Theme = 'dark' | 'light'
-type Accent = 'white' | 'yellow' | 'blue' | 'pink' | 'red' | 'green' | 'orange' | 'creme' | 'gold'
+type Accent = 'white' | 'yellow' | 'blue' | 'pink' | 'red' | 'green' | 'orange' | 'creme' | 'gold' | 'purple' | 'indigo' | 'cyan' | 'lime'
 
 interface ThemeContextType {
     theme: Theme

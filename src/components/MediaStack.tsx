@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import type { MediaFile } from '@/lib/wikimedia-api'
+import { type MediaFile, sendThankYou } from '@/lib/wikimedia-api'
+import { getAccessToken } from '@/lib/wikimedia-auth'
+import { useAuth } from '@/context/AuthContext'
 import { saveLikedItem } from '@/pages/Favorites'
 import MediaDetail from './MediaDetail'
 import { useToast } from '@/context/ToastContext'
@@ -44,6 +46,40 @@ export default function MediaStack({ media, startIndex = 0, onIndexChange, onLoa
     const startX = useRef(0)
     const dragging = useRef(false)
     const [detailItem, setDetailItem] = useState<MediaFile | null>(null)
+    const [thankedIds, setThankedIds] = useState<Set<number>>(() => {
+        try { return new Set(JSON.parse(localStorage.getItem('wikicommons_thanked') || '[]')) }
+        catch { return new Set() }
+    })
+    const { user } = useAuth()
+
+    const handleThanks = async (item: MediaFile) => {
+        if (!user) {
+            showToast('Please login to send thanks')
+            return
+        }
+        if (item.imageinfo?.[0]?.user === user.username) {
+            showToast('You cannot thank yourself!')
+            return
+        }
+        if (thankedIds.has(item.pageid)) return
+
+        // Optimistic UI
+        setThankedIds(prev => {
+            const next = new Set(prev).add(item.pageid)
+            localStorage.setItem('wikicommons_thanked', JSON.stringify([...next]))
+            return next
+        })
+        showToast(`Sent thanks to ${item.imageinfo?.[0]?.user}!`)
+
+        const token = await getAccessToken()
+        if (token) {
+            const success = await sendThankYou(item.pageid, token)
+            if (!success) {
+                // Revert only on failure? Or just silently fail?
+                // For now, let's keep it optimistic.
+            }
+        }
+    }
 
     // Sync idx to startIndex, but clamp to valid range
     useEffect(() => {
@@ -145,14 +181,35 @@ export default function MediaStack({ media, startIndex = 0, onIndexChange, onLoa
                     </div>
 
                     <div className="acts">
-                        <button className={`act ${liked ? 'liked' : ''}`} onTouchEnd={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); toggleLike(current); showToast(liked ? 'Removed from Gallery' : 'Added to Gallery') }}>
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                        {/* Thanks / Heart Button */}
+                        <button className={`act ${thankedIds.has(current.pageid) ? 'liked' : ''}`}
+                            onTouchEnd={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleThanks(current);
+                            }}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill={thankedIds.has(current.pageid) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5">
+                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                            </svg>
                         </button>
+
+                        {/* Bookmark / Favorite Button (was Heart) */}
+                        <button className={`act ${liked ? 'liked' : ''}`}
+                            onTouchEnd={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                toggleLike(current);
+                                showToast(liked ? 'Removed from Bookmarks' : 'Saved to Bookmarks')
+                            }}>
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5">
+                                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                            </svg>
+                        </button>
+
                         <button className="act" onTouchEnd={(e) => e.stopPropagation()} onClick={(e) => {
                             e.stopPropagation();
                             if (navigator.share) {
                                 navigator.share({ url: info.descriptionurl }).catch(() => {
-                                    // Fallback if share fails (e.g. cancelled) or permission denied
                                     navigator.clipboard.writeText(info.descriptionurl)
                                     showToast('Link copied')
                                 })
@@ -169,13 +226,7 @@ export default function MediaStack({ media, startIndex = 0, onIndexChange, onLoa
 
             {detailItem && detailItem.imageinfo?.[0] && (
                 <MediaDetail
-                    item={{
-                        title: detailItem.title.replace('File:', '').replace(/_/g, ' '),
-                        url: detailItem.imageinfo[0].url || detailItem.imageinfo[0].thumburl || '',
-                        thumburl: detailItem.imageinfo[0].thumburl,
-                        descriptionurl: detailItem.imageinfo[0].descriptionurl,
-                        author: detailItem.imageinfo[0].user
-                    }}
+                    item={detailItem}
                     onClose={() => setDetailItem(null)}
                 />
             )}

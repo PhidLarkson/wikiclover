@@ -32,6 +32,7 @@ interface ApiResponse {
         geosearch?: Array<{ pageid: number; title: string; lat: number; lon: number }>
         searchinfo?: { totalhits: number }
         users?: Array<{ name: string; editcount: number }>
+        logevents?: Array<any>
     }
     continue?: Record<string, string>
 }
@@ -269,6 +270,36 @@ export async function getUserUploadCount(username: string): Promise<number> {
 }
 
 /**
+ * Get detailed stats: total edits and upload count
+ */
+export async function getUserStats(username: string): Promise<{ total: number; uploads: number }> {
+    try {
+        const [totalRes, uploadsRes] = await Promise.all([
+            fetchApi({
+                action: 'query',
+                list: 'users',
+                ususers: username,
+                usprop: 'editcount'
+            }),
+            fetchApi({
+                action: 'query',
+                list: 'logevents',
+                leuser: username,
+                leaction: 'upload/upload',
+                lelimit: '500', // Cap at 500 for perf, display as "500+" if full
+            })
+        ])
+
+        const total = totalRes.query?.users?.[0]?.editcount || 0
+        const uploads = uploadsRes.query?.logevents?.length || 0
+
+        return { total, uploads }
+    } catch {
+        return { total: 0, uploads: 0 }
+    }
+}
+
+/**
  * Get user's uploads
  */
 // Helper to handle continue token
@@ -393,4 +424,129 @@ export async function getCampaigns(limit = 10): Promise<MediaFile[]> {
         // Mock an image location if we want to fetch a banner later, for now just the title
         imageinfo: []
     }))
+}
+
+// --- Social Structure / Notifications ---
+
+export interface WikiNotification {
+    id: string
+    type: string
+    category: string
+    timestamp: { utciso8601: string }
+    agent: { name: string }
+    title: { full: string }
+    read?: string // specific timestamp or missing if unread
+    revid?: number // Revision ID for linking to diff
+}
+
+/**
+ * Send a 'thank you' for a specific file (latest revision)
+ * Requires fetching the latest revision ID first
+ */
+export async function sendThankYou(pageId: number, accessToken: string): Promise<boolean> {
+    try {
+        // 1. Get latest revision ID for the page
+        const infoRes = await fetch(`${API_BASE}?action=query&prop=info&pageids=${pageId}&format=json`)
+        const infoData = await infoRes.json()
+        const page = infoData.query?.pages?.[pageId]
+
+        if (!page?.lastrevid) throw new Error('No revision found')
+        const revId = page.lastrevid
+
+        // 2. Get CSRF token
+        const tokenRes = await fetch(`${API_BASE}?action=query&meta=tokens&type=csrf&format=json`, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        })
+        const tokenData = await tokenRes.json()
+        const csrfToken = tokenData.query?.tokens?.csrftoken
+
+        if (!csrfToken) throw new Error('No CSRF token')
+
+        // 3. Send thanks
+        const params = new URLSearchParams({
+            action: 'thank',
+            rev: revId.toString(),
+            token: csrfToken,
+            format: 'json',
+            source: 'wikicommons-camera-app'
+        })
+
+        const res = await fetch(API_BASE, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}` },
+            body: params
+        })
+
+        const data = await res.json()
+        if (data.result?.success || data.result?.recipient) return true // Success format varies slightly but 'result' is key
+        // echo-thank returns { result: { success: 1, recipient: '...' } }
+
+        return !!data.result
+    } catch (e) {
+        console.error('Failed to send thanks:', e)
+        return false
+    }
+}
+
+/**
+ * Get recent notifications (Echo)
+ */
+export async function getNotifications(accessToken: string, limit = 20): Promise<{ list: WikiNotification[], count: number }> {
+    try {
+        const params = new URLSearchParams({
+            action: 'query',
+            meta: 'notifications',
+            notformat: 'model',
+            notlimit: limit.toString(),
+            // notfilter: '!read', // Removed to show history
+            format: 'json'
+        })
+
+        const res = await fetch(`${API_BASE}?${params.toString()}`, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        })
+
+        const data = await res.json()
+        const list = data.query?.notifications?.list || []
+        const count = data.query?.notifications?.count || 0 // raw count usually
+
+        return { list, count: typeof count === 'string' ? parseInt(count) : count }
+    } catch (e) {
+        console.error('Failed to get notifications:', e)
+        return { list: [], count: 0 }
+    }
+}
+
+/**
+ * Mark notification as read
+ */
+export async function markNotificationRead(id: string, accessToken: string): Promise<boolean> {
+    try {
+        // Get CSRF token first (should cache this properly in production but okay for now)
+        const tokenRes = await fetch(`${API_BASE}?action=query&meta=tokens&type=csrf&format=json`, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        })
+        const tokenData = await tokenRes.json()
+        const csrfToken = tokenData.query?.tokens?.csrftoken
+
+        if (!csrfToken) return false
+
+        const params = new URLSearchParams({
+            action: 'echomarkread',
+            list: id,
+            token: csrfToken,
+            format: 'json'
+        })
+
+        const res = await fetch(API_BASE, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}` },
+            body: params
+        })
+
+        const data = await res.json()
+        return data.query?.echomarkread?.result === 'success'
+    } catch {
+        return false
+    }
 }

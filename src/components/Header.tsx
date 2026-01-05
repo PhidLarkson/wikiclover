@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { useNotifications } from '@/context/NotificationContext'
 
 export default function Header() {
     const { isLoggedIn } = useAuth()
+    const { unreadCount } = useNotifications()
 
     return (
         <header className="app-header glass-hdr">
@@ -25,13 +27,23 @@ export default function Header() {
                 <span className="app-name">Clover</span>
             </div>
 
-            <Link to={isLoggedIn ? '/settings' : '/login'} className="hb">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="3" y1="12" x2="21" y2="12" />
-                    <line x1="3" y1="6" x2="21" y2="6" />
-                    <line x1="3" y1="18" x2="21" y2="18" />
-                </svg>
-            </Link>
+            <div className="actions">
+                <Link to="/notifications" className="hb" style={{ position: 'relative' }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                    </svg>
+                    {unreadCount > 0 && <span className="badge" />}
+                </Link>
+
+                <Link to={isLoggedIn ? '/settings' : '/login'} className="hb">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="3" y1="12" x2="21" y2="12" />
+                        <line x1="3" y1="6" x2="21" y2="6" />
+                        <line x1="3" y1="18" x2="21" y2="18" />
+                    </svg>
+                </Link>
+            </div>
 
             <style>{`
                 .glass-hdr {
@@ -61,6 +73,15 @@ export default function Header() {
                 
                 .logo-container { display: flex; align-items: center; gap: 8px; }
                 .app-name { font-weight: 700; font-size: 18px; letter-spacing: -0.5px; }
+
+                .actions { display: flex; align-items: center; gap: 4px; }
+                .badge {
+                    position: absolute; top: 10px; right: 10px;
+                    width: 8px; height: 8px;
+                    background: #ff4d4d;
+                    border-radius: 50%;
+                    border: 1px solid var(--bg);
+                }
             `}</style>
         </header>
     )

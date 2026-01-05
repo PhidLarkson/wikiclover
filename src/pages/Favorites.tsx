@@ -3,6 +3,10 @@
  */
 
 import { useState, useEffect } from 'react'
+import MediaDetail from '@/components/MediaDetail'
+import Header from '@/components/Header'
+import { Link } from 'react-router-dom'
+import { getUserUploadCount, getFileDetails, type MediaFile } from '@/lib/wikimedia-api'
 
 
 interface LikedItem {
@@ -10,6 +14,9 @@ interface LikedItem {
     title: string
     thumburl: string
     descriptionurl: string
+    user?: string
+    width?: number
+    height?: number
 }
 
 // Profile/User favorites
@@ -75,18 +82,13 @@ export function isFollowing(username: string): boolean {
     return getFollowedProfiles().some(p => p.username === username)
 }
 
-import MediaDetail from '@/components/MediaDetail'
-import Header from '@/components/Header'
-import { Link } from 'react-router-dom'
-import { getUserUploadCount } from '@/lib/wikimedia-api'
-
 type Tab = 'gallery' | 'creators'
 
 export default function Favorites() {
     const [items, setItems] = useState<LikedItem[]>([])
     const [profiles, setProfiles] = useState<FollowedProfile[]>([])
     const [profileCounts, setProfileCounts] = useState<Record<string, number>>({})
-    const [detailItem, setDetailItem] = useState<LikedItem | null>(null)
+    const [detailItem, setDetailItem] = useState<MediaFile | null>(null)
     const [tab, setTab] = useState<Tab>('gallery')
 
     useEffect(() => {
@@ -114,6 +116,37 @@ export default function Favorites() {
         e.stopPropagation()
         unfollowProfile(username)
         setProfiles(getFollowedProfiles())
+    }
+
+    const handleItemClick = async (item: LikedItem) => {
+        // Construct temporary MediaFile for immediate display
+        const tempMedia: MediaFile = {
+            pageid: item.pageid,
+            title: item.title,
+            imageinfo: [{
+                url: item.thumburl, // Use thumb as placeholder if full url not available yet
+                thumburl: item.thumburl,
+                descriptionurl: item.descriptionurl,
+                size: 0,
+                width: item.width || 0,
+                height: item.height || 0,
+                mime: 'image/jpeg',
+                timestamp: '',
+                user: item.user || '',
+                // If we have stored metadata, we could populate it here, but sticking to basics first
+            }]
+        }
+        setDetailItem(tempMedia)
+
+        // Fetch full details to get metadata, license, etc.
+        try {
+            const fullDetails = await getFileDetails(item.title)
+            if (fullDetails) {
+                setDetailItem(fullDetails)
+            }
+        } catch (error) {
+            console.error('Failed to fetch full details:', error)
+        }
     }
 
     return (
@@ -150,7 +183,7 @@ export default function Favorites() {
                         </div>
                     ) : (
                         items.map(item => (
-                            <div key={item.pageid} className="item" onClick={() => setDetailItem(item)}>
+                            <div key={item.pageid} className="item" onClick={() => handleItemClick(item)}>
                                 <img src={item.thumburl} alt={item.title} />
                                 <button className="unlike" onClick={(e) => { e.stopPropagation(); handleUnlike(item.pageid) }}>
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.5">
@@ -188,11 +221,7 @@ export default function Favorites() {
 
             {detailItem && (
                 <MediaDetail
-                    item={{
-                        title: detailItem.title.replace('File:', '').replace(/_/g, ' '),
-                        url: detailItem.thumburl,
-                        descriptionurl: detailItem.descriptionurl
-                    }}
+                    item={detailItem}
                     onClose={() => setDetailItem(null)}
                 />
             )}

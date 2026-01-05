@@ -115,13 +115,7 @@ export default function Search() {
 
             {detailItem && detailItem.imageinfo?.[0] && (
                 <MediaDetail
-                    item={{
-                        title: detailItem.title.replace('File:', '').replace(/_/g, ' '),
-                        url: detailItem.imageinfo[0].url || detailItem.imageinfo[0].thumburl || '',
-                        thumburl: detailItem.imageinfo[0].thumburl,
-                        descriptionurl: detailItem.imageinfo[0].descriptionurl,
-                        author: detailItem.imageinfo[0].user
-                    }}
+                    item={detailItem}
                     onClose={() => setDetailItem(null)}
                 />
             )}

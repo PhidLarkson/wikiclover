@@ -10,8 +10,8 @@ export default defineConfig({
             registerType: 'autoUpdate',
             includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
             manifest: {
-                name: 'WikiCommons Camera',
-                short_name: 'WikiCam',
+                name: 'Clover',
+                short_name: 'Clover',
                 description: 'Browse, capture, and share media with Wikimedia Commons',
                 theme_color: '#0a0a0a',
                 background_color: '#0a0a0a',

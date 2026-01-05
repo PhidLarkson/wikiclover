@@ -177,10 +177,45 @@
   --accent-fg: #000000;
 }
 
+/* White accent in light mode becomes black (monochrome) */
+[data-theme="light"][data-accent="white"] {
+  --accent-lightness: 0%;
+  --accent: #000000;
+  --accent-fg: #ffffff;
+}
+
 [data-accent="orange"] {
   --accent-hue: 25;
   --accent-saturation: 95%;
   --accent-lightness: 53%;
+  --accent-fg: #000000;
+}
+
+[data-accent="purple"] {
+  --accent-hue: 270;
+  --accent-saturation: 90%;
+  --accent-lightness: 60%;
+  --accent-fg: #ffffff;
+}
+
+[data-accent="indigo"] {
+  --accent-hue: 240;
+  --accent-saturation: 75%;
+  --accent-lightness: 60%;
+  --accent-fg: #ffffff;
+}
+
+[data-accent="cyan"] {
+  --accent-hue: 190;
+  --accent-saturation: 90%;
+  --accent-lightness: 50%;
+  --accent-fg: #000000;
+}
+
+[data-accent="lime"] {
+  --accent-hue: 84;
+  --accent-saturation: 80%;
+  --accent-lightness: 50%;
   --accent-fg: #000000;
 }
 
@@ -808,13 +843,22 @@ select {
 }
 
 /* ===== Color Picker ===== */
-.color-picker {
+/* ===== Color Picker ===== */
+.color-picker-container {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  /* Center align */
-  gap: 12px;
-  padding: 8px 4px;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  align-items: center;
+  width: 100%;
+}
+
+.color-picker-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  justify-items: center;
+  width: 100%;
 }
 
 .color-swatch {
@@ -879,6 +923,22 @@ select {
 
 .color-swatch[data-color="orange"] {
   background: #f97316;
+}
+
+.color-swatch[data-color="purple"] {
+  background: #9333ea;
+}
+
+.color-swatch[data-color="indigo"] {
+  background: #4f46e5;
+}
+
+.color-swatch[data-color="cyan"] {
+  background: #06b6d4;
+}
+
+.color-swatch[data-color="lime"] {
+  background: #84cc16;
 }
 
 /* ===== Loading States ===== */

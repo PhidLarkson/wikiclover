@@ -46,7 +46,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                     backdrop-filter: blur(8px);
                     border: 1px solid rgba(255,255,255,0.1);
                     text-align: center;
-                    white-space: nowrap;
+                    white-space: pre-wrap;
+                    line-height: 1.4;
+                    max-width: 90vw;
                 }
                 @keyframes toast-in {
                     from { opacity: 0; transform: translate(-50%, 10px); }

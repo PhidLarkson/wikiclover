@@ -13,9 +13,10 @@ import { useAccessibility } from '@/context/AccessibilityContext'
 import { usePWA } from '@/context/PWAContext'
 import UserManual from '@/components/UserManual'
 
-type AccentColor = 'white' | 'yellow' | 'blue' | 'pink' | 'green' | 'orange' | 'gold' | 'red' | 'creme'
+type AccentColor = 'white' | 'yellow' | 'blue' | 'pink' | 'green' | 'orange' | 'gold' | 'red' | 'creme' | 'purple' | 'indigo' | 'cyan' | 'lime'
 
-const ACCENT_COLORS: AccentColor[] = ['white', 'creme', 'gold', 'yellow', 'orange', 'red', 'pink', 'blue', 'green']
+const PRIMARY_ACCENTS: AccentColor[] = ['white', 'creme', 'gold', 'yellow', 'orange', 'red']
+const EXOTIC_ACCENTS: AccentColor[] = ['pink', 'purple', 'indigo', 'blue', 'cyan', 'lime']
 
 export default function Settings() {
     const navigate = useNavigate()
@@ -60,16 +61,31 @@ export default function Settings() {
                 <section>
                     <h2 className="settings-group-title">Accent Color</h2>
                     <div className="settings-group">
-                        <div className="color-picker">
-                            {ACCENT_COLORS.map((color) => (
-                                <button
-                                    key={color}
-                                    className={`color-swatch ${accent === color ? 'active' : ''}`}
-                                    data-color={color}
-                                    onClick={() => setAccent(color)}
-                                    aria-label={`Set accent color to ${color}`}
-                                />
-                            ))}
+                        <div className="settings-group">
+                            <div className="color-picker-container">
+                                <div className="color-picker-row">
+                                    {PRIMARY_ACCENTS.map((color) => (
+                                        <button
+                                            key={color}
+                                            className={`color-swatch ${accent === color ? 'active' : ''}`}
+                                            data-color={color}
+                                            onClick={() => setAccent(color)}
+                                            aria-label={`Set accent color to ${color}`}
+                                        />
+                                    ))}
+                                </div>
+                                <div className="color-picker-row exotic-row">
+                                    {EXOTIC_ACCENTS.map((color) => (
+                                        <button
+                                            key={color}
+                                            className={`color-swatch ${accent === color ? 'active' : ''}`}
+                                            data-color={color}
+                                            onClick={() => setAccent(color)}
+                                            aria-label={`Set accent color to ${color}`}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>

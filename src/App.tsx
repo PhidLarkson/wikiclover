@@ -19,11 +19,13 @@ import Login from '@/pages/Login'
 import AuthCallback from '@/pages/AuthCallback'
 import UserProfile from '@/pages/UserProfile'
 import Campaigns from '@/pages/Campaigns'
+import Notifications from '@/pages/Notifications'
 
 import { ToastProvider } from '@/context/ToastContext'
+import { NotificationProvider } from '@/context/NotificationContext'
 
 function AppContent() {
-    const { isLoggedIn, isGuest } = useAuth()
+    const { isLoggedIn, isGuest, isLoading } = useAuth()
     const { shouldRender, completeOnboarding } = useOnboarding()
     const location = useLocation()
     // Simplified mobile check (optional, or remove if not needed)
@@ -31,6 +33,14 @@ function AppContent() {
 
     // Allow access to auth callback and login page without being logged in
     const isPublicRoute = location.pathname.startsWith('/auth/callback') || location.pathname === '/login'
+
+    if (isLoading) {
+        return (
+            <div className="loading-overlay">
+                <div className="spinner" />
+            </div>
+        )
+    }
 
     if (!isLoggedIn && !isGuest && !isPublicRoute) {
         return <Login />
@@ -48,6 +58,7 @@ function AppContent() {
                     <Route path="settings" element={<Settings />} />
                     <Route path="user/:username" element={<UserProfile />} />
                     <Route path="campaigns" element={<Campaigns />} />
+                    <Route path="notifications" element={<Notifications />} />
                 </Route>
                 <Route path="upload" element={<Upload />} />
                 <Route path="login" element={<Login />} />
@@ -69,9 +80,11 @@ function App() {
                 <ThemeProvider>
                     <AuthProvider>
                         <PWAProvider>
-                            <ToastProvider>
-                                <AppContent />
-                            </ToastProvider>
+                            <NotificationProvider>
+                                <ToastProvider>
+                                    <AppContent />
+                                </ToastProvider>
+                            </NotificationProvider>
                         </PWAProvider>
                     </AuthProvider>
                 </ThemeProvider>
