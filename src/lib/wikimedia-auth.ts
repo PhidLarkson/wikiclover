@@ -187,7 +187,7 @@ export async function fetchUserInfo(): Promise<WikimediaUser | null> {
 
     try {
         const url = `${WIKIMEDIA_API_BASE}?action=query&meta=userinfo&uiprop=editcount|registration&format=json`
-        console.log('Fetching user info from:', url)
+
 
         const res = await fetch(url, {
             headers: { Authorization: `Bearer ${token}` },

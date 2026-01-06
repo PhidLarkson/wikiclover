@@ -43,7 +43,7 @@ To test uploading features, you need a Wikimedia OAuth 2.0 consumer.
     ```bash
     cp .env.example .env
     ```
-4.  Add your Client ID and Secret.
+4.  Add your Client ID to `.env`. (Client Secret is not required for this public client).
 
 
 

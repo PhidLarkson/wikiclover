@@ -1,5 +1,5 @@
 /**
- * Upload Page - Commons upload form
+ * Upload Page - Bulk Upload Support
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -7,7 +7,8 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { uploadToCommons, searchCategories, type UploadParams } from '@/lib/wikimedia-upload'
 import { getAccessToken } from '@/lib/wikimedia-auth'
-import { deleteDraft } from '@/lib/drafts'
+import { getDrafts, deleteDraft } from '@/lib/drafts'
+import { generateSmartSuggestions } from '@/lib/smart-suggestions'
 
 const LICENSES = [
     { value: 'cc-by-sa-4.0', label: 'CC BY-SA 4.0' },
@@ -15,43 +16,106 @@ const LICENSES = [
     { value: 'cc0', label: 'CC0 (Public Domain)' },
 ] as const
 
+interface UploadItem {
+    id: string
+    imageData: string
+    title: string
+    description: string
+    date: string
+    location: string
+    categories: string[]
+    license: UploadParams['license']
+    status: 'pending' | 'uploading' | 'success' | 'error'
+    error?: string
+}
+
 export default function Upload() {
     const navigate = useNavigate()
     const location = useLocation()
     const { user, isLoggedIn } = useAuth()
 
-    // Get image from navigation state
-    const imageData = location.state?.imageData as string | undefined
-    const draftId = location.state?.draftId as string | undefined
+    const [queue, setQueue] = useState<UploadItem[]>([])
+    const [currentIndex, setCurrentIndex] = useState(0)
+    const [globalUploading, setGlobalUploading] = useState(false)
 
-    const [title, setTitle] = useState('')
-    const [description, setDescription] = useState('')
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0])
-    const [locationStr, setLocationStr] = useState('')
-    const [license, setLicense] = useState<UploadParams['license']>('cc-by-sa-4.0')
-
-    // Toggle for advanced
+    // UI State
     const [showAdvanced, setShowAdvanced] = useState(false)
-
     const [categoryInput, setCategoryInput] = useState('')
-    const [categories, setCategories] = useState<string[]>([])
     const [suggestions, setSuggestions] = useState<string[]>([])
 
-    const [uploading, setUploading] = useState(false)
-    const [progress, setProgress] = useState('')
-    const [error, setError] = useState('')
-
+    // Load drafts on mount
     useEffect(() => {
-        if (!isLoggedIn) navigate('/login')
-        if (!imageData) navigate('/mine')
-    }, [isLoggedIn, imageData, navigate])
+        if (!isLoggedIn) { navigate('/login'); return }
+
+        const state = location.state as { draftIds?: string[] } | null
+        if (!state?.draftIds || state.draftIds.length === 0) { navigate('/mine'); return }
+
+        const allDrafts = getDrafts()
+        const items: UploadItem[] = state.draftIds.map(id => {
+            const draft = allDrafts.find(d => d.id === id)
+            if (!draft) return null
+            return {
+                id: draft.id,
+                imageData: draft.imageData,
+                title: '',
+                description: '',
+                date: new Date().toISOString().split('T')[0],
+                location: '',
+                categories: [],
+                license: 'cc-by-sa-4.0',
+                status: 'pending'
+            }
+        }).filter(Boolean) as UploadItem[]
+
+        if (items.length === 0) navigate('/mine')
+        setQueue(items)
+    }, [isLoggedIn, navigate, location.state])
+
+    // Current item helper
+    const currentItem = queue[currentIndex]
+
+    // updateCurrentItem
+    const updateItem = (updates: Partial<UploadItem>) => {
+        setQueue(prev => prev.map((item, i) =>
+            i === currentIndex ? { ...item, ...updates } : item
+        ))
+    }
+
+    // Apply to All
+    const applyToAll = () => {
+        if (!currentItem) return
+        if (confirm('Apply Title pattern, Description, and Categories to ALL images?')) {
+            setQueue(prev => prev.map((item, i) => {
+                if (i === currentIndex) return item
+                return {
+                    ...item,
+                    description: currentItem.description,
+                    categories: [...currentItem.categories],
+                    license: currentItem.license,
+                    // Smart title numbering
+                    title: currentItem.title ? `${currentItem.title} ${i + 1}` : ''
+                }
+            }))
+        }
+    }
+
+    // Smart Suggest
+    const handleSmartSuggest = async () => {
+        if (!currentItem) return
+        const suggestions = await generateSmartSuggestions(currentItem.imageData)
+        updateItem({
+            title: suggestions.title || '',
+            date: suggestions.date || currentItem.date,
+            categories: [...currentItem.categories, ...suggestions.categories]
+        })
+    }
 
     // Category search
     const searchCats = useCallback(async (q: string) => {
         if (q.length < 2) { setSuggestions([]); return }
         const results = await searchCategories(q)
-        setSuggestions(results.filter(r => !categories.includes(r)))
-    }, [categories])
+        setSuggestions(results)
+    }, [])
 
     useEffect(() => {
         const t = setTimeout(() => searchCats(categoryInput), 300)
@@ -59,111 +123,146 @@ export default function Upload() {
     }, [categoryInput, searchCats])
 
     const addCategory = (cat: string) => {
-        if (!categories.includes(cat)) {
-            setCategories(prev => [...prev, cat])
+        if (!currentItem) return
+        if (!currentItem.categories.includes(cat)) {
+            updateItem({ categories: [...currentItem.categories, cat] })
         }
         setCategoryInput('')
         setSuggestions([])
     }
 
     const removeCategory = (cat: string) => {
-        setCategories(prev => prev.filter(c => c !== cat))
+        if (!currentItem) return
+        updateItem({ categories: currentItem.categories.filter(c => c !== cat) })
     }
 
-    const handleSubmit = async () => {
-        if (!imageData || !title.trim() || !description.trim()) {
-            setError('Please fill in title and description')
+    // Upload Logic
+    const handleUploadAll = async () => {
+        // Validate
+        const invalid = queue.findIndex(i => !i.title.trim() || !i.description.trim())
+        if (invalid !== -1) {
+            setCurrentIndex(invalid)
+            alert(`Please fix image #${invalid + 1} (Missing Title or Description)`)
             return
         }
 
-        setUploading(true)
-        setError('')
-        setProgress('Getting authorization...')
+        setGlobalUploading(true)
+        const token = await getAccessToken()
 
-        try {
-            const token = await getAccessToken()
-            if (!token) throw new Error('Not authenticated')
+        if (!token) {
+            alert('Auth Error. Please log in again.')
+            setGlobalUploading(false)
+            return
+        }
 
-            setProgress('Uploading to Commons...')
+        for (let i = 0; i < queue.length; i++) {
+            const item = queue[i]
+            if (item.status === 'success') continue // Skip already done
 
-            const mime = imageData.match(/:(.*?);/)?.[1] || 'image/jpeg'
+            // Update status to uploading
+            setQueue(prev => prev.map((q, idx) => idx === i ? { ...q, status: 'uploading' } : q))
+            setCurrentIndex(i)
+
+            // Prepare Filename
+            const mime = item.imageData.match(/:(.*?);/)?.[1] || 'image/jpeg'
             const ext = mime === 'image/png' ? 'png' : 'jpg'
-            const filename = `${title.trim().replace(/[^a-zA-Z0-9_\- ]/g, '')}.${ext}`
+            const filename = `${item.title.trim().replace(/[^a-zA-Z0-9_\- ]/g, '')}.${ext}`
 
-            const result = await uploadToCommons(imageData, {
+            // Upload
+            const result = await uploadToCommons(item.imageData, {
                 filename,
-                description: description.trim(),
+                description: item.description,
                 source: '{{own}}',
-                date,
+                date: item.date,
                 author: `[[User:${user?.username}|${user?.username}]]`,
-                license,
-                categories,
-                location: locationStr.trim() || undefined
+                license: item.license,
+                categories: item.categories,
+                location: item.location || undefined
             }, token)
 
             if (result.success) {
-                setProgress('Success!')
-                // Delete draft if it was from drafts
-                if (draftId) deleteDraft(draftId)
-                setTimeout(() => {
-                    navigate('/mine', { state: { uploaded: true } })
-                }, 1500)
+                setQueue(prev => prev.map((q, idx) => idx === i ? { ...q, status: 'success' } : q))
+                deleteDraft(item.id)
             } else {
-                setError(result.error || 'Upload failed')
-                setProgress('')
+                setQueue(prev => prev.map((q, idx) => idx === i ? { ...q, status: 'error', error: result.error } : q))
+                // Stop on error? No, try next, but maybe pause?
+                // For now continue
             }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Upload failed')
-            setProgress('')
-        } finally {
-            setUploading(false)
+        }
+
+        setGlobalUploading(false)
+
+        // If all success, go home
+        if (queue.every(i => i.status === 'success')) {
+            setTimeout(() => navigate('/mine'), 1000)
         }
     }
 
-    if (!imageData) return null
+    if (!currentItem) return null
 
     return (
         <div className="upload-page">
             <header className="glass-header">
-                <button className="icon-btn" onClick={() => navigate(-1)}>
+                <button className="icon-btn" onClick={() => navigate(-1)} disabled={globalUploading}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
                 </button>
-                <span className="page-title">Upload Details</span>
-                <div style={{ width: 40 }} />
+                <span className="page-title">Bulk Upload ({queue.filter(i => i.status === 'success').length}/{queue.length})</span>
+                <button className="text-btn" onClick={applyToAll} disabled={globalUploading}>Apply to All</button>
             </header>
+
+            {/* Queue Carousel */}
+            <div className="queue-rail">
+                {queue.map((item, i) => (
+                    <div
+                        key={item.id}
+                        className={`queue-thumb ${i === currentIndex ? 'active' : ''} ${item.status}`}
+                        onClick={() => !globalUploading && setCurrentIndex(i)}
+                    >
+                        <img src={item.imageData} alt="" />
+                        {item.status === 'success' && <div className="badge success"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><polyline points="20 6 9 17 4 12" /></svg></div>}
+                        {item.status === 'error' && <div className="badge error"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>}
+                    </div>
+                ))}
+            </div>
 
             <main className="content">
                 <div className="preview-container">
-                    <img src={imageData} alt="Preview" className="preview-img" />
+                    <img src={currentItem.imageData} alt="Preview" className="preview-img" />
                 </div>
 
                 <div className="form-section">
-                    {/* Basic Info */}
                     <div className="card glass">
+                        <div className="row-between">
+                            <label>Status: <span className={`status-text ${currentItem.status}`}>{currentItem.status}</span></label>
+                            <button className="smart-btn" onClick={handleSmartSuggest} disabled={globalUploading}>
+                                Smart Fill
+                            </button>
+                        </div>
+                        {currentItem.error && <p className="error-text">{currentItem.error}</p>}
+
                         <div className="input-group">
                             <label>Title <span className="required">*</span></label>
                             <input
                                 type="text"
-                                value={title}
-                                onChange={e => setTitle(e.target.value)}
+                                value={currentItem.title}
+                                onChange={e => updateItem({ title: e.target.value })}
                                 placeholder="E.g., Sunset in Kyoto 2026"
-                                disabled={uploading}
+                                disabled={globalUploading || currentItem.status === 'success'}
                             />
                         </div>
 
                         <div className="input-group">
                             <label>Description <span className="required">*</span></label>
                             <textarea
-                                value={description}
-                                onChange={e => setDescription(e.target.value)}
+                                value={currentItem.description}
+                                onChange={e => updateItem({ description: e.target.value })}
                                 placeholder="Describe what is in this image..."
-                                rows={3}
-                                disabled={uploading}
+                                rows={2}
+                                disabled={globalUploading || currentItem.status === 'success'}
                             />
                         </div>
                     </div>
 
-                    {/* Advanced Toggle */}
                     <button
                         className={`advanced-toggle ${showAdvanced ? 'active' : ''}`}
                         onClick={() => setShowAdvanced(!showAdvanced)}
@@ -175,7 +274,6 @@ export default function Upload() {
                         </svg>
                     </button>
 
-                    {/* Advanced Section */}
                     {showAdvanced && (
                         <div className="card glass advanced-fields fade-in">
                             <div className="input-row">
@@ -183,19 +281,19 @@ export default function Upload() {
                                     <label>Date</label>
                                     <input
                                         type="date"
-                                        value={date}
-                                        onChange={e => setDate(e.target.value)}
-                                        disabled={uploading}
+                                        value={currentItem.date}
+                                        onChange={e => updateItem({ date: e.target.value })}
+                                        disabled={globalUploading}
                                     />
                                 </div>
                                 <div className="input-group half">
-                                    <label>Location (Optional)</label>
+                                    <label>Location</label>
                                     <input
                                         type="text"
-                                        value={locationStr}
-                                        onChange={e => setLocationStr(e.target.value)}
-                                        placeholder="e.g. 40.7128, -74.0060"
-                                        disabled={uploading}
+                                        value={currentItem.location}
+                                        onChange={e => updateItem({ location: e.target.value })}
+                                        placeholder="Lat, Lon"
+                                        disabled={globalUploading}
                                     />
                                 </div>
                             </div>
@@ -203,9 +301,9 @@ export default function Upload() {
                             <div className="input-group">
                                 <label>License</label>
                                 <select
-                                    value={license}
-                                    onChange={e => setLicense(e.target.value as UploadParams['license'])}
-                                    disabled={uploading}
+                                    value={currentItem.license}
+                                    onChange={e => updateItem({ license: e.target.value as UploadParams['license'] })}
+                                    disabled={globalUploading}
                                 >
                                     {LICENSES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
                                 </select>
@@ -214,10 +312,10 @@ export default function Upload() {
                             <div className="input-group">
                                 <label>Categories</label>
                                 <div className="tags-container">
-                                    {categories.map(c => (
+                                    {currentItem.categories.map(c => (
                                         <span key={c} className="tag">
                                             {c}
-                                            <button onClick={() => removeCategory(c)} disabled={uploading}>×</button>
+                                            <button onClick={() => removeCategory(c)} disabled={globalUploading}>×</button>
                                         </span>
                                     ))}
                                 </div>
@@ -227,7 +325,7 @@ export default function Upload() {
                                     onChange={e => setCategoryInput(e.target.value)}
                                     placeholder="Search categories..."
                                     className="search-input"
-                                    disabled={uploading}
+                                    disabled={globalUploading}
                                 />
                                 {suggestions.length > 0 && (
                                     <div className="suggestions-list">
@@ -244,264 +342,68 @@ export default function Upload() {
                 </div>
 
                 <div className="upload-actions-flow">
-                    {error && <div className="status-msg error">{error}</div>}
-                    {progress && <div className="status-msg info">{progress}</div>}
-
                     <button
                         className="primary-btn"
-                        onClick={handleSubmit}
-                        disabled={uploading || !title.trim() || !description.trim()}
+                        onClick={handleUploadAll}
+                        disabled={globalUploading || queue.every(i => i.status === 'success')}
                     >
-                        {uploading ? 'Uploading...' : 'Publish to Commons'}
+                        {globalUploading ? 'Uploading Queue...' : `Upload All (${queue.length})`}
                     </button>
-                    <p className="terms-text">By publishing, you agree to the <a href="#">Terms of Use</a></p>
                 </div>
             </main>
 
-
-
             <style>{`
-                .upload-page {
-                    display: flex;
-                    flex-direction: column;
-                    height: 100vh;
-                    background: var(--bg);
-                    color: var(--text);
-                }
+                .upload-page { display: flex; flex-direction: column; height: 100vh; background: var(--bg); color: var(--text); }
+                .glass-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(var(--bg-card), 0.8); border-bottom: 1px solid var(--border); }
+                .page-title { font-weight: 600; font-size: 16px; }
+                .text-btn { background: none; border: none; color: var(--accent); font-weight: 600; cursor: pointer; font-size: 14px; }
+                .icon-btn { background: none; border: none; color: var(--text); cursor: pointer; }
 
-                .glass-header {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    padding: 16px;
-                    background: rgba(var(--bg-card-rgb), 0.8);
-                    backdrop-filter: blur(12px);
-                    -webkit-backdrop-filter: blur(12px);
-                    border-bottom: 1px solid var(--border);
-                    z-index: 10;
+                .queue-rail {
+                    display: flex; gap: 12px; padding: 16px; overflow-x: auto;
+                    background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--border);
                 }
-
-                .page-title {
-                    font-weight: 600;
-                    font-size: 16px;
+                .queue-thumb {
+                    width: 60px; height: 60px; flex-shrink: 0; position: relative;
+                    border-radius: 8px; border: 2px solid transparent; overflow: hidden; opacity: 0.6; transition: 0.2s;
                 }
+                .queue-thumb.active { border-color: var(--accent); opacity: 1; transform: scale(1.1); }
+                .queue-thumb img { width: 100%; height: 100%; object-fit: cover; }
+                .badge { position: absolute; bottom: 0; right: 0; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; }
+                .badge.success { background: #10b981; }
+                .badge.error { background: #ef4444; }
 
-                .icon-btn {
-                    width: 40px;
-                    height: 40px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: var(--text);
-                    background: transparent;
-                    border: none;
-                    cursor: pointer;
-                }
+                .content { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+                .preview-container { display: flex; justify-content: center; height: 200px; }
+                .preview-img { height: 100%; width: auto; max-width: 100%; border-radius: 12px; object-fit: contain; }
 
-                .content {
-                    flex: 1;
-                    overflow-y: auto;
-                    padding: 20px;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 20px;
-                    /* padding-bottom removed */
-                }
+                .card { padding: 20px; border-radius: 20px; display: flex; flex-direction: column; gap: 16px; background: var(--bg-card); border: 1px solid var(--border); }
+                .row-between { display: flex; justify-content: space-between; align-items: center; }
+                .smart-btn { background: rgba(var(--accent-rgb), 0.1); color: var(--accent); border: none; padding: 6px 12px; border-radius: 20px; font-weight: 600; font-size: 12px; cursor: pointer; }
+                
+                .status-text { text-transform: uppercase; font-size: 12px; font-weight: 700; }
+                .status-text.pending { color: var(--text-muted); }
+                .status-text.success { color: #10b981; }
+                .status-text.error { color: #ef4444; }
+                .error-text { color: #ef4444; font-size: 12px; margin: 0; }
 
-                .preview-container {
-                    display: flex;
-                    justify-content: center;
-                    margin-bottom: 10px;
-                }
-
-                .preview-img {
-                    max-height: 300px;
-                    max-width: 100%;
-                    border-radius: 16px;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-                    object-fit: contain;
-                }
-
-                .card {
-                    padding: 20px;
-                    border-radius: 20px;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 16px;
-                    margin-bottom: 10px;
-                }
-
-                .glass {
-                    background: var(--bg-card);
-                    border: 1px solid var(--border);
-                }
-
-                .input-group {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 8px;
-                }
-
-                .input-group label {
-                    font-size: 12px;
-                    font-weight: 600;
-                    color: var(--text-muted);
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }
-
+                .input-group { display: flex; flex-direction: column; gap: 8px; }
+                .input-group label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
                 .required { color: var(--accent); }
+                input, textarea, select { background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px; padding: 12px; color: var(--text); width: 100%; font-size: 16px; }
+                input:focus, textarea:focus { border-color: var(--accent); outline: none; }
 
-                input, textarea, select {
-                    background: var(--bg-input, rgba(255,255,255,0.05));
-                    border: 1px solid var(--border);
-                    border-radius: 12px;
-                    padding: 12px;
-                    color: var(--text);
-                    font-size: 16px;
-                    font-family: inherit;
-                    width: 100%;
-                    transition: border-color 0.2s;
-                }
-
-                input:focus, textarea:focus, select:focus {
-                    border-color: var(--accent);
-                    outline: none;
-                }
-
-                textarea { resize: none; min-height: 100px; }
-
-                .advanced-toggle {
-                    width: 100%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    padding: 16px;
-                    background: transparent;
-                    border: none;
-                    color: var(--text-muted);
-                    font-weight: 500;
-                    cursor: pointer;
-                    border-radius: 12px;
-                }
-
-                .advanced-toggle:hover {
-                    background: rgba(255,255,255,0.03);
-                    color: var(--text);
-                }
-
-                .advanced-fields {
-                    margin-top: 10px;
-                }
-
-                .input-row {
-                    display: flex;
-                    gap: 12px;
-                }
-                .half { flex: 1; }
-
-                .tags-container {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 8px;
-                    margin-bottom: 8px;
-                }
-
-                .tag {
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                    padding: 6px 12px;
-                    background: rgba(var(--accent-rgb), 0.15);
-                    color: var(--accent);
-                    border-radius: 100px;
-                    font-size: 13px;
-                    font-weight: 500;
-                }
-
-                .tag button {
-                    background: none;
-                    border: none;
-                    color: currentColor;
-                    opacity: 0.6;
-                    font-size: 18px;
-                    line-height: 1;
-                    cursor: pointer;
-                    padding: 0;
-                }
-
-                .suggestions-list {
-                    margin-top: 8px;
-                    background: var(--bg-card);
-                    border: 1px solid var(--border);
-                    border-radius: 12px;
-                    max-height: 200px;
-                    overflow-y: auto;
-                    display: flex;
-                    flex-direction: column;
-                }
-
-                .suggestion-item {
-                    padding: 12px;
-                    text-align: left;
-                    background: none;
-                    border: none;
-                    border-bottom: 1px solid var(--border);
-                    color: var(--text);
-                    cursor: pointer;
-                }
-
-                .suggestion-item:hover {
-                    background: rgba(255,255,255,0.05);
-                }
-
-                .upload-actions-flow {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 12px;
-                    margin-top: 20px;
-                    padding-bottom: 40px;
-                }
-
-                .primary-btn {
-                    width: 100%;
-                    padding: 16px;
-                    background: var(--accent);
-                    color: white;
-                    font-size: 16px;
-                    font-weight: 600;
-                    border: none;
-                    border-radius: 16px;
-                    cursor: pointer;
-                    box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.3);
-                    transition: transform 0.2s, opacity 0.2s;
-                }
-
-                .primary-btn:active { transform: scale(0.98); }
-                .primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-                .terms-text {
-                    text-align: center;
-                    font-size: 12px;
-                    color: var(--text-muted);
-                }
-
-                .status-msg {
-                    padding: 12px;
-                    border-radius: 12px;
-                    font-size: 14px;
-                    text-align: center;
-                    font-weight: 500;
-                }
-                .error { background: rgba(255, 59, 48, 0.1); color: #ff3b30; }
-                .info { background: rgba(var(--accent-rgb), 0.1); color: var(--accent); }
-
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: translateY(-10px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-                .fade-in { animation: fadeIn 0.3s ease-out; }
+                .advanced-toggle { display: flex; justify-content: space-between; padding: 12px; background: none; border: none; color: var(--text-muted); font-weight: 500; width: 100%; cursor: pointer; }
+                .input-row { display: flex; gap: 12px; } .half { flex: 1; }
+                
+                .tags-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+                .tag { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(var(--accent-rgb), 0.15); color: var(--accent); border-radius: 100px; font-size: 13px; }
+                .tag button { background: none; border: none; color: currentColor; cursor: pointer; padding: 0; font-size: 16px; }
+                
+                .primary-btn { width: 100%; padding: 16px; background: var(--accent); color: white; border: none; border-radius: 16px; font-weight: 600; font-size: 16px; cursor: pointer; margin-top: auto; }
+                .primary-btn:disabled { opacity: 0.5; }
             `}</style>
         </div>
     )
 }
+
