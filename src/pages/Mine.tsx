@@ -1,5 +1,5 @@
 /**
- * Mine Page - Clean drafts/uploads, no connect button
+ * Mine Page - Clean drafts/uploads
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -29,8 +29,6 @@ export default function Mine() {
     const [continueToken, setContinueToken] = useState<string | undefined>(undefined)
     const [deleting, setDeleting] = useState<string | null>(null)
     const [detailItem, setDetailItem] = useState<MediaFile | null>(null)
-    const [selectionMode, setSelectionMode] = useState(false)
-    const [selectedDrafts, setSelectedDrafts] = useState<string[]>([])
     const observer = useRef<IntersectionObserver | null>(null)
 
     useEffect(() => { setDrafts(getDrafts()) }, [])
@@ -100,20 +98,7 @@ export default function Mine() {
     }
 
     const handleUploadDraft = (draft: Draft) => {
-        navigate('/upload', { state: { draftIds: [draft.id] } })
-    }
-
-    const handleBulkUpload = () => {
-        if (selectedDrafts.length === 0) return
-        navigate('/upload', { state: { draftIds: selectedDrafts } })
-    }
-
-    const toggleSelection = (id: string) => {
-        if (selectedDrafts.includes(id)) {
-            setSelectedDrafts(prev => prev.filter(d => d !== id))
-        } else {
-            setSelectedDrafts(prev => [...prev, id])
-        }
+        navigate('/upload', { state: { draftId: draft.id } })
     }
 
     const getSortedData = () => {
@@ -193,19 +178,6 @@ export default function Mine() {
                 )}
             </div>
 
-            {/* Selection Toolbar */
-                selectionMode && tab === 'drafts' && (
-                    <div className="selection-toolbar">
-                        <span>{selectedDrafts.length} selected</span>
-                        <div className="toolbar-actions">
-                            <button onClick={() => setSelectionMode(false)}>Cancel</button>
-                            <button className="primary" onClick={handleBulkUpload} disabled={selectedDrafts.length === 0}>
-                                Upload ({selectedDrafts.length})
-                            </button>
-                        </div>
-                    </div>
-                )}
-
             <div className="tabs">
                 <button className={tab === 'drafts' ? 'on' : ''} onClick={() => setTab('drafts')}>
                     <span>Drafts</span>
@@ -213,14 +185,7 @@ export default function Mine() {
                 <button className={tab === 'uploads' ? 'on' : ''} onClick={() => setTab('uploads')} disabled={!isLoggedIn}>
                     <span>Gallery</span>
                 </button>
-                {tab === 'drafts' && !selectionMode && drafts.length > 0 && (
-                    <button className="select-mode-btn" onClick={() => setSelectionMode(true)}>
-                        Select
-                    </button>
-                )}
             </div>
-
-
 
             {/* Filter Bar */}
             <div className="filter-bar">
@@ -244,28 +209,15 @@ export default function Mine() {
                                 <p>No drafts</p>
                             </div>
                         ) : (sortedItems as Draft[]).map(d => (
-                            <div key={d.id} className={`item ${selectionMode ? 'selectable' : ''} ${selectedDrafts.includes(d.id) ? 'selected' : ''}`}
-                                onClick={() => {
-                                    if (selectionMode) toggleSelection(d.id)
-                                    else if (isLoggedIn) handleUploadDraft(d)
-                                }}>
+                            <div key={d.id} className="item" onClick={() => isLoggedIn && handleUploadDraft(d)}>
                                 <img src={d.imageData} alt="" />
-
-                                {selectionMode ? (
-                                    <div className="checkbox">
-                                        {selectedDrafts.includes(d.id) && <div className="checked" />}
-                                    </div>
-                                ) : (
-                                    <>
-                                        <button className="del" onClick={(e) => { e.stopPropagation(); setDeleting(d.id); }}>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-2 14H7L5 6M10 11v6M14 11v6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                                        </button>
-                                        {isLoggedIn && (
-                                            <button className="up" onClick={(e) => { e.stopPropagation(); handleUploadDraft(d); }}>
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg>
-                                            </button>
-                                        )}
-                                    </>
+                                <button className="del" onClick={(e) => { e.stopPropagation(); setDeleting(d.id); }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-2 14H7L5 6M10 11v6M14 11v6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                                </button>
+                                {isLoggedIn && (
+                                    <button className="up" onClick={(e) => { e.stopPropagation(); handleUploadDraft(d); }}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg>
+                                    </button>
                                 )}
                             </div>
                         ))}
@@ -331,7 +283,6 @@ export default function Mine() {
         .profile-header {
             padding: 10px 24px 24px;
             display: flex; flex-direction: column; gap: 12px;
-            /* Removed grey background/border - purely transparent/black */
             background: transparent;
         }
         .profile-header h1 { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); margin: 0; }
@@ -399,7 +350,6 @@ export default function Mine() {
             border-radius: 20px;
             padding: 30px 20px;
             margin-top: 10px;
-            /* No heavy blur or jarring styles */
         }
         .welcome-content { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; }
         .welcome-content h1 { font-size: 24px; font-weight: 700; color: var(--text); margin: 0; letter-spacing: -0.5px; }
@@ -442,38 +392,8 @@ export default function Mine() {
         @media (min-width: 640px) { .grid { grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 20px; } }
         
         .item { position: relative; aspect-ratio: 1; background: #1a1a1a; cursor: pointer; transition: transform 0.1s; }
-        .item.selectable:active { transform: scale(0.98); }
-        .item.selected { box-shadow: inset 0 0 0 3px var(--accent); }
+        .item:active { transform: scale(0.98); }
         .item img { width: 100%; height: 100%; object-fit: cover; }
-        
-        .checkbox {
-            position: absolute; top: 8px; right: 8px;
-            width: 24px; height: 24px;
-            border: 2px solid rgba(255,255,255,0.8);
-            border-radius: 50%;
-            background: rgba(0,0,0,0.3);
-            display: flex; align-items: center; justify-content: center;
-        }
-        .item.selected .checkbox { border-color: var(--accent); background: var(--accent); }
-        .checked { width: 10px; height: 10px; background: #000; border-radius: 50%; }
-
-        .select-mode-btn { margin-left: auto; color: var(--accent) !important; font-weight: 600 !important; }
-
-        .selection-toolbar {
-            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-            width: 90%; max-width: 400px;
-            background: #222; border: 1px solid #333;
-            border-radius: 50px;
-            padding: 8px 16px;
-            display: flex; align-items: center; justify-content: space-between;
-            z-index: 50;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        .selection-toolbar span { font-weight: 600; color: #fff; margin-left: 8px; }
-        .toolbar-actions { display: flex; gap: 8px; }
-        .toolbar-actions button { padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; }
-        .toolbar-actions button.primary { background: var(--accent); color: #000; }
-        
         
         .del, .up { position: absolute; width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,0.6); color: #fff; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.15s; }
         .del { top: 8px; right: 8px; }
