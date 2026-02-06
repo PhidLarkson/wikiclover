@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import { useNotifications } from '@/context/NotificationContext'
-import { useAuth } from '@/context/AuthContext'
-import { useNavigate } from 'react-router-dom'
-import { useToast } from '@/context/ToastContext'
+
+
 import { getFileDetails, type WikiNotification } from '@/lib/wikimedia-api'
 
-const NotificationItem = ({ n, markAsRead, navigate }: { n: WikiNotification, markAsRead: (id: string) => void, navigate: any }) => {
+const NotificationItem = ({ n, markAsRead }: { n: WikiNotification, markAsRead: (id: string) => void }) => {
     const isRead = !!n.read
     const [thumb, setThumb] = useState<string | null>(null)
     const isFile = n.title?.full?.startsWith('File:')
@@ -100,14 +99,7 @@ const NotificationItem = ({ n, markAsRead, navigate }: { n: WikiNotification, ma
 
 export default function Notifications() {
     const { notifications, unreadCount, isLoading, markAsRead, refreshNotifications } = useNotifications()
-    const { isLoggedIn } = useAuth()
-    const navigate = useNavigate()
 
-    useEffect(() => {
-        if (!isLoading && !isLoggedIn) {
-            // Logic handled by protected route usually, but for now safe to leave
-        }
-    }, [isLoading, isLoggedIn, navigate])
 
     return (
         <div className="page">
@@ -144,7 +136,6 @@ export default function Notifications() {
                             key={n.id}
                             n={n}
                             markAsRead={markAsRead}
-                            navigate={navigate}
                         />
                     ))}
                 </div>

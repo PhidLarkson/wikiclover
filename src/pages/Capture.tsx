@@ -21,10 +21,14 @@ export default function Capture() {
 
     const [isReady, setIsReady] = useState(false)
     const [facing] = useState<CameraFacing>('environment')
-    const [captured, setCaptured] = useState<string | null>(null)
+
     const [error, setError] = useState<string | null>(null)
     const [isStarting, setIsStarting] = useState(false)
     const [saving, setSaving] = useState(false)
+
+    // Multi-capture session
+    const [sessionCaptures, setSessionCaptures] = useState<string[]>([])
+    const [viewingCapture, setViewingCapture] = useState<string | null>(null)
 
     const stopCamera = useCallback(() => {
         if (streamRef.current) {
@@ -78,7 +82,7 @@ export default function Capture() {
     }, [])
 
     useEffect(() => {
-        if (!captured && (isReady || error)) startCamera()
+        if (!viewingCapture && (isReady || error)) startCamera()
     }, [facing])
 
     const snap = () => {
@@ -89,39 +93,67 @@ export default function Capture() {
         const ctx = canvas.getContext('2d')!
         if (facing === 'user') { ctx.translate(canvas.width, 0); ctx.scale(-1, 1) }
         ctx.drawImage(video, 0, 0)
-        setCaptured(canvas.toDataURL('image/jpeg', 0.92))
-        stopCamera()
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.92)
+        setSessionCaptures(prev => [...prev, dataUrl])
+        // DON'T auto-show preview - let user continue snapping
+        // They can tap the thumbnail to review
     }
 
-    const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (!file) return
-        const reader = new FileReader()
-        reader.onload = ev => { setCaptured(ev.target?.result as string); stopCamera() }
-        reader.readAsDataURL(file)
+    const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files
+        if (!files || files.length === 0) return
+
+        // Process all selected files with proper async handling
+        const readFile = (file: File): Promise<string> => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader()
+                reader.onload = ev => {
+                    if (ev.target?.result) {
+                        resolve(ev.target.result as string)
+                    } else {
+                        reject(new Error('Failed to read file'))
+                    }
+                }
+                reader.onerror = () => reject(new Error('FileReader error'))
+                reader.readAsDataURL(file)
+            })
+        }
+
+        try {
+            const results = await Promise.all(Array.from(files).map(readFile))
+            setSessionCaptures(prev => [...prev, ...results])
+        } catch (err) {
+            console.error('Failed to read files:', err)
+        }
     }
 
-    const handleSaveDraft = async () => {
-        if (!captured) return
+    const handleFinishSession = async () => {
+        if (sessionCaptures.length === 0) return
         setSaving(true)
         try {
-            await saveDraft(captured)
-            navigate('/mine')
-        } catch { /* */ }
-        finally { setSaving(false) }
+            stopCamera() // Stop camera before navigating
+            const draftIds: string[] = []
+            for (const img of sessionCaptures) {
+                const draft = await saveDraft(img, sessionCaptures.length > 1)
+                draftIds.push(draft.id)
+            }
+            navigate('/upload', { state: { draftIds } })
+        } catch (err) {
+            console.error('Failed to save drafts:', err)
+            setSaving(false)
+            // Restart camera on error
+            startCamera()
+        }
     }
 
-    const handleUpload = () => {
-        if (!captured) return
-        navigate('/upload', { state: { imageData: captured } })
-    }
+    // Updated UI to show session count and controls
 
-    const retake = () => { setCaptured(null); setTimeout(startCamera, 100) }
+
 
     return (
         <div className="cap">
             {/* Error state */}
-            {error && !captured && (
+            {error && !viewingCapture && (
                 <div className="err">
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="1" y1="1" x2="23" y2="23" /><path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v9.34" /></svg>
                     <p>{error}</p>
@@ -137,7 +169,7 @@ export default function Capture() {
             )}
 
             {/* Camera view */}
-            {!captured && !error && (
+            {!viewingCapture && !error && (
                 <div className="cam">
                     <video ref={videoRef} autoPlay playsInline muted style={{ transform: facing === 'user' ? 'scaleX(-1)' : 'none' }} />
                     {!isReady && <div className="ld"><div className="spinner" /></div>}
@@ -169,26 +201,50 @@ export default function Capture() {
             )}
 
             {/* Preview with options */}
-            {captured && (
+            {/* Session Preview / Done Bar */}
+            {!viewingCapture && sessionCaptures.length > 0 && !error && (
+                <div className="session-bar">
+                    <div className="thumb-stack" onClick={() => setViewingCapture(sessionCaptures[sessionCaptures.length - 1])}>
+                        <img src={sessionCaptures[sessionCaptures.length - 1]} alt="" />
+                        <span className="badge">{sessionCaptures.length}</span>
+                    </div>
+                    <button className="done-btn" onClick={handleFinishSession} disabled={saving}>
+                        {saving ? 'Processing...' : `Done (${sessionCaptures.length})`}
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
+                    </button>
+                </div>
+            )}
+
+            {/* Individual Capture Preview Overlay */}
+            {viewingCapture && (
                 <div className="prev">
-                    <img src={captured} alt="" />
+                    <img src={viewingCapture} alt="" />
                     <div className="overlay-opts">
-                        <button className="glass-btn" onClick={retake}>
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 4v6h6" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10" /></svg>
+                        <button className="glass-btn" onClick={() => {
+                            // Go back to camera view
+                            setViewingCapture(null)
+                            // Ensure camera is running
+                            if (!isReady && !isStarting) startCamera()
+                        }}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
 
-                        <button className="glass-btn primary" onClick={handleUpload}>
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                        <button className="glass-btn primary" onClick={handleFinishSession} disabled={saving}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
                         </button>
 
-                        <button className="glass-btn" onClick={handleSaveDraft} disabled={saving}>
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>
+                        {/* Option to delete from session? */}
+                        <button className="glass-btn error" onClick={() => {
+                            setSessionCaptures(prev => prev.filter(c => c !== viewingCapture))
+                            setViewingCapture(null)
+                        }}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                         </button>
                     </div>
                 </div>
             )}
 
-            <input ref={galleryInputRef} type="file" accept="image/*" onChange={onFile} hidden />
+            <input ref={galleryInputRef} type="file" multiple accept="image/*" onChange={onFile} hidden />
             <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={onFile} hidden />
             <canvas ref={canvasRef} hidden />
 
@@ -257,6 +313,28 @@ export default function Capture() {
     
     .err { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; color: #888; text-align: center; }
     .err-btns { display: flex; gap: 16px; }
+
+    .session-bar {
+        position: absolute; bottom: 120px; right: 20px;
+        display: flex; align-items: center; gap: 12px;
+        z-index: 30;
+    }
+    .thumb-stack {
+        width: 60px; height: 60px; position: relative;
+        border-radius: 8px; border: 2px solid white; overflow: hidden;
+        cursor: pointer;
+    }
+    .thumb-stack img { width: 100%; height: 100%; object-fit: cover; }
+    .thumb-stack .badge {
+        position: absolute; top: 0; right: 0; background: var(--accent); color: white;
+        width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+        font-size: 12px; font-weight: bold; border-bottom-left-radius: 8px;
+    }
+    .done-btn {
+        padding: 12px 20px; background: white; color: black; border-radius: 30px;
+        border: none; font-weight: bold; display: flex; align-items: center; gap: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
 `}</style>
         </div>
     )

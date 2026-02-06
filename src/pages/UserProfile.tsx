@@ -22,6 +22,7 @@ export default function UserProfile() {
     const [continueToken, setContinueToken] = useState<string | undefined>(undefined)
     const [detailItem, setDetailItem] = useState<MediaFile | null>(null)
     const [following, setFollowing] = useState(false)
+    const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
     const observer = useRef<IntersectionObserver | null>(null)
 
     const isMe = user?.username === username
@@ -147,19 +148,36 @@ export default function UserProfile() {
                     </a>
                 </div>
             </div>
+            <div className="filter-bar">
+                <button
+                    className="filter-pill"
+                    onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+                >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        {sortOrder === 'newest' ? <path d="M3 6h18M3 12h12M3 18h6" /> : <path d="M3 6h6M3 12h12M3 18h18" />}
+                    </svg>
+                    {sortOrder === 'newest' ? 'Newest First' : 'Oldest First'}
+                </button>
+            </div>
 
             <div className="content">
                 <div className="grid">
-                    {uploads.map((item, index) => (
-                        <div
-                            key={`${item.pageid}-${index}`}
-                            ref={index === uploads.length - 1 ? lastElementRef : null}
-                            className="item"
-                            onClick={() => setDetailItem(item)}
-                        >
-                            <img src={item.imageinfo?.[0]?.thumburl} alt={item.title} loading="lazy" />
-                        </div>
-                    ))}
+                    {[...uploads]
+                        .sort((a, b) => {
+                            const timeA = new Date(a.imageinfo?.[0]?.timestamp || 0).getTime()
+                            const timeB = new Date(b.imageinfo?.[0]?.timestamp || 0).getTime()
+                            return sortOrder === 'newest' ? timeB - timeA : timeA - timeB
+                        })
+                        .map((item, index) => (
+                            <div
+                                key={`${item.pageid}-${index}`}
+                                ref={index === uploads.length - 1 ? lastElementRef : null}
+                                className="item"
+                                onClick={() => setDetailItem(item)}
+                            >
+                                <img src={item.imageinfo?.[0]?.thumburl} alt={item.title} loading="lazy" />
+                            </div>
+                        ))}
                 </div>
 
                 {loading && (
@@ -177,12 +195,14 @@ export default function UserProfile() {
                 )}
             </div>
 
-            {detailItem && detailItem.imageinfo?.[0] && (
-                <MediaDetail
-                    item={detailItem}
-                    onClose={() => setDetailItem(null)}
-                />
-            )}
+            {
+                detailItem && detailItem.imageinfo?.[0] && (
+                    <MediaDetail
+                        item={detailItem}
+                        onClose={() => setDetailItem(null)}
+                    />
+                )
+            }
 
             <style>{`
                 .profile-page { display: flex; flex-direction: column; height: 100%; background: var(--bg); }
@@ -209,6 +229,17 @@ export default function UserProfile() {
                 }
                 h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); margin: 0; }
                 
+                .filter-bar { 
+                    padding: 0 24px 12px; display: flex; gap: 8px; 
+                }
+                .filter-pill {
+                    background: rgba(255,255,255,0.05); color: var(--text-muted);
+                    border: 1px solid transparent; padding: 6px 12px; border-radius: 20px;
+                    font-size: 13px; font-weight: 500; cursor: pointer;
+                    display: flex; align-items: center; gap: 6px;
+                }
+                .filter-pill:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+
                 .stats { display: flex; gap: 24px; }
                 .stat { position: relative; display: flex; flex-direction: column; cursor: pointer; }
                 .stat b { font-size: 18px; font-weight: 600; color: var(--text); }

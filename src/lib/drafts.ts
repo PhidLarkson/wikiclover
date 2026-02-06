@@ -36,41 +36,32 @@ export function getDrafts(): Draft[] {
 /**
  * Save a new draft
  */
-export async function saveDraft(imageData: string): Promise<Draft> {
+export async function saveDraft(imageData: string, skipGeolocation = false): Promise<Draft> {
     const drafts = getDrafts()
 
     // Get location if available
     let location: Draft['location'] | undefined
 
-    try {
-        if ('geolocation' in navigator) {
-            const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-                navigator.geolocation.getCurrentPosition(resolve, reject, {
-                    enableHighAccuracy: true,
-                    timeout: 5000
+    // Only do geolocation if not skipped (for performance on batch saves)
+    if (!skipGeolocation) {
+        try {
+            if ('geolocation' in navigator) {
+                const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 3000  // Reduced from 5000ms
+                    })
                 })
-            })
 
-            location = {
-                latitude: pos.coords.latitude,
-                longitude: pos.coords.longitude
-            }
-
-            // Try to get location name via reverse geocoding
-            try {
-                const res = await fetch(
-                    `https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`
-                )
-                const data = await res.json()
-                if (data.address) {
-                    location.name = data.address.city || data.address.town || data.address.village || data.address.state
+                location = {
+                    latitude: pos.coords.latitude,
+                    longitude: pos.coords.longitude
                 }
-            } catch {
-                // Ignore geocoding errors
+                // Note: Location name will be fetched later on Upload page for better UX
             }
+        } catch {
+            // Location not available - continue without it
         }
-    } catch {
-        // Location not available
     }
 
     const draft: Draft = {
@@ -82,7 +73,7 @@ export async function saveDraft(imageData: string): Promise<Draft> {
     }
 
     drafts.unshift(draft)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(drafts))
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(drafts)) } catch (e) { console.warn("localStorage quota exceeded") }
 
     return draft
 }
@@ -97,7 +88,7 @@ export function updateDraft(id: string, updates: Partial<Draft>): Draft | null {
     if (index === -1) return null
 
     drafts[index] = { ...drafts[index], ...updates }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(drafts))
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(drafts)) } catch (e) { console.warn("localStorage quota exceeded") }
 
     return drafts[index]
 }

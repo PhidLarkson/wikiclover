@@ -8,7 +8,9 @@ import { useAuth } from '@/context/AuthContext'
 import { uploadToCommons, searchCategories, type UploadParams } from '@/lib/wikimedia-upload'
 import { getAccessToken } from '@/lib/wikimedia-auth'
 import { getDrafts, deleteDraft } from '@/lib/drafts'
+
 import { generateSmartSuggestions } from '@/lib/smart-suggestions'
+import LocationPicker from '@/components/LocationPicker'
 
 const LICENSES = [
     { value: 'cc-by-sa-4.0', label: 'CC BY-SA 4.0' },
@@ -24,6 +26,7 @@ interface UploadItem {
     date: string
     location: string
     categories: string[]
+    depicts: string[]
     license: UploadParams['license']
     status: 'pending' | 'uploading' | 'success' | 'error'
     error?: string
@@ -37,6 +40,11 @@ export default function Upload() {
     const [queue, setQueue] = useState<UploadItem[]>([])
     const [currentIndex, setCurrentIndex] = useState(0)
     const [globalUploading, setGlobalUploading] = useState(false)
+
+    // "Smart" means:
+    // If queue.length == 1 -> Implicitly Single
+    // If queue.length > 1 -> Implicitly Batch (with carousel)
+    const isBatch = queue.length > 1
 
     // UI State
     const [showAdvanced, setShowAdvanced] = useState(false)
@@ -62,6 +70,7 @@ export default function Upload() {
                 date: new Date().toISOString().split('T')[0],
                 location: '',
                 categories: [],
+                depicts: [],
                 license: 'cc-by-sa-4.0',
                 status: 'pending'
             }
@@ -84,16 +93,22 @@ export default function Upload() {
     // Apply to All
     const applyToAll = () => {
         if (!currentItem) return
-        if (confirm('Apply Title pattern, Description, and Categories to ALL images?')) {
+        if (confirm('Apply Title pattern, Description, License, Categories, and Depicts to ALL images?')) {
             setQueue(prev => prev.map((item, i) => {
                 if (i === currentIndex) return item
+                let newTitle = ''
+                if (currentItem.title) {
+                    newTitle = `${currentItem.title}_${i + 1}`
+                }
+
                 return {
                     ...item,
                     description: currentItem.description,
                     categories: [...currentItem.categories],
                     license: currentItem.license,
-                    // Smart title numbering
-                    title: currentItem.title ? `${currentItem.title} ${i + 1}` : ''
+                    location: currentItem.location, // Also copy location
+                    depicts: [...currentItem.depicts],
+                    title: newTitle || item.title
                 }
             }))
         }
@@ -136,13 +151,35 @@ export default function Upload() {
         updateItem({ categories: currentItem.categories.filter(c => c !== cat) })
     }
 
+    const addDepicts = (val: string) => {
+        if (!currentItem || !val.trim()) return
+        if (!currentItem.depicts.includes(val.trim())) {
+            updateItem({ depicts: [...currentItem.depicts, val.trim()] })
+        }
+    }
+
+    const removeDepicts = (val: string) => {
+        if (!currentItem) return
+        updateItem({ depicts: currentItem.depicts.filter(d => d !== val) })
+    }
+
     // Upload Logic
-    const handleUploadAll = async () => {
+    const handleUpload = async () => {
+        // Since Single/Batch toggle is gone, we always behave as "Upload Queue".
+        // If queue=1, it's just one item.
+        // But users might want to upload just ONE specific item from a batch?
+        // For "Simple & Fun", let's assume "Upload All" is the primary action.
+        // If they want single, they select single.
+        // Actually, let's keep it simple: "Upload All Pending"
+
+        const indices = queue.map((_, i) => i)
+
         // Validate
         const invalid = queue.findIndex(i => !i.title.trim() || !i.description.trim())
         if (invalid !== -1) {
-            setCurrentIndex(invalid)
-            alert(`Please fix image #${invalid + 1} (Missing Title or Description)`)
+            const realIndex = indices[invalid]
+            setCurrentIndex(realIndex)
+            alert(`Please fix image #${realIndex + 1} (Missing Title or Description)`)
             return
         }
 
@@ -155,7 +192,7 @@ export default function Upload() {
             return
         }
 
-        for (let i = 0; i < queue.length; i++) {
+        for (const i of indices) {
             const item = queue[i]
             if (item.status === 'success') continue // Skip already done
 
@@ -166,7 +203,8 @@ export default function Upload() {
             // Prepare Filename
             const mime = item.imageData.match(/:(.*?);/)?.[1] || 'image/jpeg'
             const ext = mime === 'image/png' ? 'png' : 'jpg'
-            const filename = `${item.title.trim().replace(/[^a-zA-Z0-9_\- ]/g, '')}.${ext}`
+            const cleanTitle = item.title.trim().replace(/[^a-zA-Z0-9_\- ]/g, '')
+            const filename = `${cleanTitle}.${ext}`
 
             // Upload
             const result = await uploadToCommons(item.imageData, {
@@ -177,7 +215,8 @@ export default function Upload() {
                 author: `[[User:${user?.username}|${user?.username}]]`,
                 license: item.license,
                 categories: item.categories,
-                location: item.location || undefined
+                location: item.location || undefined,
+                depicts: item.depicts
             }, token)
 
             if (result.success) {
@@ -185,8 +224,6 @@ export default function Upload() {
                 deleteDraft(item.id)
             } else {
                 setQueue(prev => prev.map((q, idx) => idx === i ? { ...q, status: 'error', error: result.error } : q))
-                // Stop on error? No, try next, but maybe pause?
-                // For now continue
             }
         }
 
@@ -206,24 +243,26 @@ export default function Upload() {
                 <button className="icon-btn" onClick={() => navigate(-1)} disabled={globalUploading}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
                 </button>
-                <span className="page-title">Bulk Upload ({queue.filter(i => i.status === 'success').length}/{queue.length})</span>
-                <button className="text-btn" onClick={applyToAll} disabled={globalUploading}>Apply to All</button>
+                <span className="page-title">{isBatch ? `Bulk Upload (${queue.filter(i => i.status === 'success').length}/${queue.length})` : 'Upload Photo'}</span>
+                {isBatch && <button className="text-btn" onClick={applyToAll} disabled={globalUploading}>Apply to All</button>}
             </header>
 
-            {/* Queue Carousel */}
-            <div className="queue-rail">
-                {queue.map((item, i) => (
-                    <div
-                        key={item.id}
-                        className={`queue-thumb ${i === currentIndex ? 'active' : ''} ${item.status}`}
-                        onClick={() => !globalUploading && setCurrentIndex(i)}
-                    >
-                        <img src={item.imageData} alt="" />
-                        {item.status === 'success' && <div className="badge success"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><polyline points="20 6 9 17 4 12" /></svg></div>}
-                        {item.status === 'error' && <div className="badge error"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>}
-                    </div>
-                ))}
-            </div>
+            {/* Smart Queue Rail - Only show if batch */}
+            {isBatch && (
+                <div className="queue-rail slide-down">
+                    {queue.map((item, i) => (
+                        <div
+                            key={item.id}
+                            className={`queue-thumb ${i === currentIndex ? 'active' : ''} ${item.status}`}
+                            onClick={() => !globalUploading && setCurrentIndex(i)}
+                        >
+                            <img src={item.imageData} alt="" />
+                            {item.status === 'success' && <div className="badge success"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><polyline points="20 6 9 17 4 12" /></svg></div>}
+                            {item.status === 'error' && <div className="badge error"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>}
+                        </div>
+                    ))}
+                </div>
+            )}
 
             <main className="content">
                 <div className="preview-container">
@@ -261,13 +300,24 @@ export default function Upload() {
                                 disabled={globalUploading || currentItem.status === 'success'}
                             />
                         </div>
+
+                        <div className="input-group">
+                            <label>License</label>
+                            <select
+                                value={currentItem.license}
+                                onChange={e => updateItem({ license: e.target.value as UploadParams['license'] })}
+                                disabled={globalUploading}
+                            >
+                                {LICENSES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+                            </select>
+                        </div>
                     </div>
 
                     <button
                         className={`advanced-toggle ${showAdvanced ? 'active' : ''}`}
                         onClick={() => setShowAdvanced(!showAdvanced)}
                     >
-                        <span>Advanced Details</span>
+                        <span>Advanced Details (Dates, Location, Depicts)</span>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
                             style={{ transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.3s' }}>
                             <polyline points="6 9 12 15 18 9" />
@@ -288,25 +338,13 @@ export default function Upload() {
                                 </div>
                                 <div className="input-group half">
                                     <label>Location</label>
-                                    <input
-                                        type="text"
+                                    <LocationPicker
                                         value={currentItem.location}
-                                        onChange={e => updateItem({ location: e.target.value })}
-                                        placeholder="Lat, Lon"
+                                        onChange={(val) => updateItem({ location: val })}
+                                        imageData={currentItem.imageData}
                                         disabled={globalUploading}
                                     />
                                 </div>
-                            </div>
-
-                            <div className="input-group">
-                                <label>License</label>
-                                <select
-                                    value={currentItem.license}
-                                    onChange={e => updateItem({ license: e.target.value as UploadParams['license'] })}
-                                    disabled={globalUploading}
-                                >
-                                    {LICENSES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-                                </select>
                             </div>
 
                             <div className="input-group">
@@ -337,6 +375,31 @@ export default function Upload() {
                                     </div>
                                 )}
                             </div>
+
+                            <div className="input-group">
+                                <label>Depicts (Structured Data)</label>
+                                <div className="tags-container">
+                                    {currentItem.depicts.map(d => (
+                                        <span key={d} className="tag blue">
+                                            {d}
+                                            <button onClick={() => removeDepicts(d)} disabled={globalUploading}>×</button>
+                                        </span>
+                                    ))}
+                                </div>
+                                <input
+                                    type="text"
+                                    placeholder="Add items depicted (e.g. 'Eiffel Tower')..."
+                                    className="search-input"
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter') {
+                                            const val = e.currentTarget.value
+                                            if (val) addDepicts(val)
+                                            e.currentTarget.value = ''
+                                        }
+                                    }}
+                                    disabled={globalUploading}
+                                />
+                            </div>
                         </div>
                     )}
                 </div>
@@ -344,10 +407,10 @@ export default function Upload() {
                 <div className="upload-actions-flow">
                     <button
                         className="primary-btn"
-                        onClick={handleUploadAll}
+                        onClick={handleUpload}
                         disabled={globalUploading || queue.every(i => i.status === 'success')}
                     >
-                        {globalUploading ? 'Uploading Queue...' : `Upload All (${queue.length})`}
+                        {globalUploading ? 'Uploading...' : (isBatch ? `Upload All (${queue.length})` : 'Upload Photo')}
                     </button>
                 </div>
             </main>
@@ -400,10 +463,14 @@ export default function Upload() {
                 .tag { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(var(--accent-rgb), 0.15); color: var(--accent); border-radius: 100px; font-size: 13px; }
                 .tag button { background: none; border: none; color: currentColor; cursor: pointer; padding: 0; font-size: 16px; }
                 
-                .primary-btn { width: 100%; padding: 16px; background: var(--accent); color: white; border: none; border-radius: 16px; font-weight: 600; font-size: 16px; cursor: pointer; margin-top: auto; }
+                .primary-btn { width: 100%; padding: 16px; background: var(--accent); color: white; border: none; border-radius: 16px; font-weight: 600; font-size: 16px; cursor: pointer; margin-top: 12px; }
                 .primary-btn:disabled { opacity: 0.5; }
+                
+                .slide-down { animation: slideDown 0.3s ease-out; }
+                @keyframes slideDown { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+                .tag.blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
             `}</style>
         </div>
     )
 }
-

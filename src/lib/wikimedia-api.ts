@@ -141,7 +141,10 @@ export async function getNearbyMedia(lat: number, lon: number, limit = 20): Prom
                 }
             }
         } catch (err) {
-            console.warn(`[Nearby] Geosearch at ${radius}m failed:`, err)
+            // Suppress excessive warnings for nearby search failures
+            if (import.meta.env.DEV) {
+                console.debug(`[Nearby] Geosearch at ${radius}m failed:`, err)
+            }
         }
     }
 
@@ -195,7 +198,7 @@ async function getRegionalFallback(lat: number, lon: number, limit: number): Pro
             }
         }
     } catch (err) {
-        console.warn('[Nearby] Regional fallback failed:', err)
+        // Silent fail for regional fallback
     }
 
     // Ultimate fallback: Quality images globally
@@ -483,7 +486,7 @@ export async function sendThankYou(pageId: number, accessToken: string): Promise
 
         return !!data.result
     } catch (e) {
-        console.error('Failed to send thanks:', e)
+        // Silent fail for thanks
         return false
     }
 }
@@ -512,7 +515,7 @@ export async function getNotifications(accessToken: string, limit = 20): Promise
 
         return { list, count: typeof count === 'string' ? parseInt(count) : count }
     } catch (e) {
-        console.error('Failed to get notifications:', e)
+        // Silent fail for notifications
         return { list: [], count: 0 }
     }
 }

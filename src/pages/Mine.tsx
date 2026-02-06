@@ -13,10 +13,13 @@ type Tab = 'drafts' | 'uploads'
 import MediaDetail from '@/components/MediaDetail'
 import Header from '@/components/Header'
 
+type SortOrder = 'newest' | 'oldest' | 'az'
+
 export default function Mine() {
     const navigate = useNavigate()
     const { user, isLoggedIn } = useAuth()
     const [tab, setTab] = useState<Tab>('drafts')
+    const [sortOrder, setSortOrder] = useState<SortOrder>('newest')
     const [drafts, setDrafts] = useState<Draft[]>([])
     const [uploads, setUploads] = useState<MediaFile[]>([])
     const [stats, setStats] = useState<{ total: number; uploads: number } | null>(null)
@@ -113,6 +116,28 @@ export default function Mine() {
         }
     }
 
+    const getSortedData = () => {
+        if (tab === 'drafts') {
+            return [...drafts].sort((a, b) => {
+                const timeA = a.timestamp || 0
+                const timeB = b.timestamp || 0
+                if (sortOrder === 'newest') return timeB - timeA
+                if (sortOrder === 'oldest') return timeA - timeB
+                return 0
+            })
+        }
+        return [...uploads].sort((a, b) => {
+            const timeA = new Date(a.imageinfo?.[0]?.timestamp || 0).getTime()
+            const timeB = new Date(b.imageinfo?.[0]?.timestamp || 0).getTime()
+            if (sortOrder === 'newest') return timeB - timeA
+            if (sortOrder === 'oldest') return timeA - timeB
+            if (sortOrder === 'az') return a.title.localeCompare(b.title)
+            return 0
+        })
+    }
+
+    const sortedItems = getSortedData()
+
     return (
         <div className="mine">
             <Header />
@@ -195,87 +220,110 @@ export default function Mine() {
                 )}
             </div>
 
-            {tab === 'drafts' && (
-                <div className="grid">
-                    {drafts.length === 0 ? (
-                        <div className="emp">
-                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /></svg>
-                            <p>No drafts</p>
-                        </div>
-                    ) : drafts.map(d => (
-                        <div key={d.id} className={`item ${selectionMode ? 'selectable' : ''} ${selectedDrafts.includes(d.id) ? 'selected' : ''}`}
-                            onClick={() => {
-                                if (selectionMode) toggleSelection(d.id)
-                                else if (isLoggedIn) handleUploadDraft(d)
-                            }}>
-                            <img src={d.imageData} alt="" />
 
-                            {selectionMode ? (
-                                <div className="checkbox">
-                                    {selectedDrafts.includes(d.id) && <div className="checked" />}
-                                </div>
-                            ) : (
-                                <>
-                                    <button className="del" onClick={(e) => { e.stopPropagation(); setDeleting(d.id); }}>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-2 14H7L5 6M10 11v6M14 11v6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                                    </button>
-                                    {isLoggedIn && (
-                                        <button className="up" onClick={(e) => { e.stopPropagation(); handleUploadDraft(d); }}>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg>
+
+            {/* Filter Bar */}
+            <div className="filter-bar">
+                <button
+                    className="filter-pill"
+                    onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+                >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        {sortOrder === 'newest' ? <path d="M3 6h18M3 12h12M3 18h6" /> : <path d="M3 6h6M3 12h12M3 18h18" />}
+                    </svg>
+                    {sortOrder === 'newest' ? 'Newest First' : 'Oldest First'}
+                </button>
+            </div>
+
+            {
+                tab === 'drafts' && (
+                    <div className="grid">
+                        {sortedItems.length === 0 ? (
+                            <div className="emp">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /></svg>
+                                <p>No drafts</p>
+                            </div>
+                        ) : (sortedItems as Draft[]).map(d => (
+                            <div key={d.id} className={`item ${selectionMode ? 'selectable' : ''} ${selectedDrafts.includes(d.id) ? 'selected' : ''}`}
+                                onClick={() => {
+                                    if (selectionMode) toggleSelection(d.id)
+                                    else if (isLoggedIn) handleUploadDraft(d)
+                                }}>
+                                <img src={d.imageData} alt="" />
+
+                                {selectionMode ? (
+                                    <div className="checkbox">
+                                        {selectedDrafts.includes(d.id) && <div className="checked" />}
+                                    </div>
+                                ) : (
+                                    <>
+                                        <button className="del" onClick={(e) => { e.stopPropagation(); setDeleting(d.id); }}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-2 14H7L5 6M10 11v6M14 11v6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                                         </button>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            )}
+                                        {isLoggedIn && (
+                                            <button className="up" onClick={(e) => { e.stopPropagation(); handleUploadDraft(d); }}>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg>
+                                            </button>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )
+            }
 
-            {tab === 'uploads' && (
-                <div className="grid">
-                    {uploads.map((u, i) => (
-                        <div
-                            key={`${u.pageid}-${i}`}
-                            ref={i === uploads.length - 1 ? lastElementRef : null}
-                            className="item"
-                            onClick={() => setDetailItem(u)}
-                        >
-                            <img src={u.imageinfo?.[0]?.thumburl} alt="" />
-                        </div>
-                    ))}
+            {
+                tab === 'uploads' && (
+                    <div className="grid">
+                        {(sortedItems as MediaFile[]).map((u, i) => (
+                            <div
+                                key={`${u.pageid}-${i}`}
+                                ref={i === uploads.length - 1 ? lastElementRef : null}
+                                className="item"
+                                onClick={() => setDetailItem(u)}
+                            >
+                                <img src={u.imageinfo?.[0]?.thumburl} alt="" />
+                            </div>
+                        ))}
 
-                    {loading && <div className="loading-overlay"><div className="spinner" /></div>}
-                    {loadingMore && <div className="emp"><div className="spinner small" /></div>}
+                        {loading && <div className="loading-overlay"><div className="spinner" /></div>}
+                        {loadingMore && <div className="emp"><div className="spinner small" /></div>}
 
-                    {!loading && uploads.length === 0 && (
-                        <div className="emp">
-                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg>
-                            <p>No uploads yet</p>
-                        </div>
-                    )}
-                </div>
-            )}
+                        {!loading && uploads.length === 0 && (
+                            <div className="emp">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg>
+                                <p>No uploads yet</p>
+                            </div>
+                        )}
+                    </div>
+                )
+            }
 
-            {detailItem && detailItem.imageinfo?.[0] && (
-                <MediaDetail
-                    item={detailItem}
-                    onClose={() => setDetailItem(null)}
-                />
-            )}
+            {
+                detailItem && detailItem.imageinfo?.[0] && (
+                    <MediaDetail
+                        item={detailItem}
+                        onClose={() => setDetailItem(null)}
+                    />
+                )
+            }
 
             {/* Delete modal */}
-            {deleting && (
-                <div className="modal-overlay" onClick={() => setDeleting(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()}>
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-2 14H7L5 6M10 11v6M14 11v6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                        <p>Delete this draft?</p>
-                        <div className="modal-btns">
-                            <button className="cancel" onClick={() => setDeleting(null)}>Cancel</button>
-                            <button className="confirm" onClick={confirmDelete}>Delete</button>
+            {
+                deleting && (
+                    <div className="modal-overlay" onClick={() => setDeleting(null)}>
+                        <div className="modal" onClick={e => e.stopPropagation()}>
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-2 14H7L5 6M10 11v6M14 11v6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                            <p>Delete this draft?</p>
+                            <div className="modal-btns">
+                                <button className="cancel" onClick={() => setDeleting(null)}>Cancel</button>
+                                <button className="confirm" onClick={confirmDelete}>Delete</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             <style>{`
         .mine { display: flex; flex-direction: column; height: 100%; background: var(--bg); }
@@ -378,6 +426,17 @@ export default function Mine() {
             content: ''; position: absolute; bottom: 0; left: 0; right: 0;
             height: 2px; background: var(--accent); border-radius: 2px;
         }
+
+        .filter-bar { 
+            padding: 0 24px 16px; display: flex; gap: 8px; 
+        }
+        .filter-pill {
+            background: rgba(255,255,255,0.05); color: var(--text-muted);
+            border: 1px solid transparent; padding: 6px 12px; border-radius: 20px;
+            font-size: 13px; font-weight: 500; cursor: pointer;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .filter-pill:hover { background: rgba(255,255,255,0.1); color: var(--text); }
         
         .grid { flex: 1; display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px; padding: 0; overflow-y: auto; }
         @media (min-width: 640px) { .grid { grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 20px; } }

@@ -45,6 +45,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         setIsLoading(true)
         try {
             const { list, count } = await getNotifications(token)
+            // Sort new -> old
+            list.sort((a, b) => new Date(b.timestamp.utciso8601).getTime() - new Date(a.timestamp.utciso8601).getTime())
             setNotifications(list)
             setUnreadCount(count)
         } catch (e) {
